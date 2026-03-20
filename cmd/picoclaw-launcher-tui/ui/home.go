@@ -28,6 +28,9 @@ func (a *App) newHomePage() tview.Primitive {
 		list.AddItem("CHANNELS: Configure communication channels", "Manage Telegram/Discord/WeChat channels", 'n', func() {
 			a.navigateTo("channels", a.newChannelsPage())
 		})
+		list.AddItem("GATEWAY MANAGEMENT", "Manage PicoClaw gateway daemon", 'g', func() {
+			a.navigateTo("gateway", a.newGatewayPage())
+		})
 		list.AddItem("QUIT SYSTEM", "Exit PicoClaw Launcher", 'q', func() { a.tapp.Stop() })
 		if sel >= 0 && sel < list.GetItemCount() {
 			list.SetCurrentItem(sel)

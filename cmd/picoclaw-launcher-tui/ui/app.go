@@ -304,6 +304,7 @@ func (a *App) buildShell(pageID string, content tview.Primitive, hint string) tv
 	sbText += menuItem("users", "USERS")
 	sbText += menuItem("models", "MODELS")
 	sbText += menuItem("channels", "CHANNELS")
+	sbText += menuItem("gateway", "GATEWAY")
 
 	sidebar.SetText(sbText)
 
