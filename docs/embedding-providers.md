@@ -33,6 +33,7 @@ Or via environment variables:
 | `PICOCLAW_EMBEDDING_API_KEY` | API key for cloud providers |
 | `PICOCLAW_EMBEDDING_BASE_URL` | Endpoint override |
 | `PICOCLAW_EMBEDDING_CACHE_SIZE` | LRU cache entries (default: 10000) |
+| `PICOCLAW_EMBEDDING_TEXT_TYPE` | Role hint for asymmetric models: `document` (default) or `query` |
 
 ## Backends
 
@@ -67,7 +68,7 @@ Local [Ollama](https://ollama.com/) instance. No API key required. Ideal for **o
 Pull the model first: `ollama pull nomic-embed-text`
 
 ### `google`
-Google AI Studio (Gemini) embeddings. Set `base_url` for Vertex AI.
+Google AI Studio (Gemini) embeddings. For production, Vertex AI is recommended (see below).
 
 | Field | Default |
 |---|---|
@@ -78,6 +79,23 @@ Google AI Studio (Gemini) embeddings. Set `base_url` for Vertex AI.
 ```json
 { "backend": "google", "api_key": "AIza...", "model": "text-embedding-004" }
 ```
+
+> **Warning:** AI Studio embeds the API key in the request URL (`?key=...`), which may appear in proxy and access logs. Use Vertex AI for production.
+
+#### Vertex AI
+
+Set `base_url` to your Vertex AI endpoint. Bearer token auth is used automatically when the URL contains `aiplatform.googleapis.com`. Pass an access token (e.g. from `gcloud auth print-access-token`) as `api_key`.
+
+```json
+{
+  "backend": "google",
+  "api_key": "ya29.ACCESS_TOKEN",
+  "base_url": "https://us-central1-aiplatform.googleapis.com/v1/projects/MY_PROJECT/locations/us-central1/publishers/google",
+  "model": "text-embedding-004"
+}
+```
+
+The token is sent as `Authorization: Bearer <token>` — no key in the URL.
 
 ### `aliyun`
 Alibaba Cloud DashScope (Bailian) text-embedding API.
@@ -109,6 +127,24 @@ DeepSeek embeddings (OpenAI-compatible API).
 
 All providers are automatically wrapped with an **LRU in-memory cache** when `cache_size > 0` (the default).  
 Identical texts are embedded only once per process lifetime. Set `cache_size: 0` to disable.
+
+Cache hit/miss/eviction counters are available via `(*CachedProvider).Stats()` and can be exposed to metrics systems.
+
+## Asymmetric Embeddings (`text_type`)
+
+Some providers (currently: **Aliyun DashScope** `text-embedding-v3`) distinguish between corpus documents and search queries at embed time. The `text_type` field controls this:
+
+| Value | Meaning |
+|---|---|
+| `document` (default) | Text being stored in the vector database |
+| `query` | Text used as a search query |
+
+```json
+{ "backend": "aliyun", "api_key": "sk-...", "text_type": "query" }
+```
+
+Set `text_type: "query"` when you are embedding a query at search time (i.e., in client code that calls `SimilaritySearch`).  
+Leave it at the default `"document"` for the store that indexes memories.
 
 ## Supabase Vector Search
 

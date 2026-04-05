@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"sync/atomic"
 	"time"
 )
@@ -17,21 +18,27 @@ const (
 )
 
 // GoogleProvider calls the Google AI Studio (Gemini) embeddings API.
-// For Vertex AI, set BaseURL to the Vertex endpoint.
+// For Vertex AI, set BaseURL to the Vertex endpoint — Bearer token auth is
+// used automatically when the URL contains "aiplatform.googleapis.com".
 var _ Provider = (*GoogleProvider)(nil)
 
 // GoogleProvider implements Provider using Google's text embedding models.
 type GoogleProvider struct {
-	apiKey  string
-	baseURL string
-	model   string
-	dims    atomic.Int32
-	client  *http.Client
+	apiKey     string
+	baseURL    string
+	model      string
+	useBearer  bool // true for Vertex AI; false for AI Studio (?key= param)
+	dims       atomic.Int32
+	client     *http.Client
 }
 
 // NewGoogleProvider creates a Google embedding provider.
-// Required: cfg.APIKey (Google AI Studio key).
+// Required: cfg.APIKey (Google AI Studio key or Vertex AI Bearer token).
 // Optional: cfg.Model (default: text-embedding-004), cfg.BaseURL.
+//
+// Vertex AI: set BaseURL to your Vertex endpoint (e.g.
+// https://us-central1-aiplatform.googleapis.com/v1/projects/PROJECT/locations/us-central1/publishers/google).
+// Bearer token auth is used automatically when BaseURL contains "aiplatform.googleapis.com".
 func NewGoogleProvider(cfg Config) (*GoogleProvider, error) {
 	if cfg.APIKey == "" {
 		return nil, errors.New("embedding/google: api_key is required")
@@ -44,11 +51,13 @@ func NewGoogleProvider(cfg Config) (*GoogleProvider, error) {
 	if model == "" {
 		model = defaultGoogleModel
 	}
+	useBearer := strings.Contains(base, "aiplatform.googleapis.com")
 	return &GoogleProvider{
-		apiKey:  cfg.APIKey,
-		baseURL: base,
-		model:   model,
-		client:  &http.Client{Timeout: 30 * time.Second},
+		apiKey:    cfg.APIKey,
+		baseURL:   base,
+		model:     model,
+		useBearer: useBearer,
+		client:    &http.Client{Timeout: 30 * time.Second},
 	}, nil
 }
 
@@ -80,12 +89,24 @@ func (p *GoogleProvider) Embed(ctx context.Context, texts []string) ([][]float32
 		return nil, fmt.Errorf("embedding/google: marshal request: %w", err)
 	}
 
-	url := fmt.Sprintf("%s/models/%s:batchEmbedContents?key=%s", p.baseURL, p.model, p.apiKey)
+	var url string
+	if p.useBearer {
+		// Vertex AI: Bearer token in Authorization header; no ?key= param.
+		// Vertex endpoint already contains model path in baseURL:
+		//   .../publishers/google/models/text-embedding-004:batchEmbedContents
+		url = fmt.Sprintf("%s/models/%s:batchEmbedContents", p.baseURL, p.model)
+	} else {
+		// AI Studio: API key as query parameter.
+		url = fmt.Sprintf("%s/models/%s:batchEmbedContents?key=%s", p.baseURL, p.model, p.apiKey)
+	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("embedding/google: create request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
+	if p.useBearer {
+		req.Header.Set("Authorization", "Bearer "+p.apiKey)
+	}
 
 	resp, err := p.client.Do(req)
 	if err != nil {

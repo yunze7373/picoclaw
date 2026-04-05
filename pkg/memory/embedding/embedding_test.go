@@ -239,3 +239,100 @@ func TestNew_OpenAI_MissingKey(t *testing.T) {
 		t.Fatal("expected error for openai without api_key")
 	}
 }
+
+// — CacheStats tests —
+
+func TestCachedProvider_Stats(t *testing.T) {
+	callCount := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		callCount++
+		json.NewEncoder(w).Encode(map[string]any{
+			"data": []map[string]any{
+				{"index": 0, "embedding": []float32{0.1, 0.2}},
+			},
+		})
+	}))
+	defer srv.Close()
+
+	inner, _ := embedding.NewOpenAIProvider(embedding.Config{APIKey: "test", BaseURL: srv.URL})
+	cached := embedding.NewCachedProvider(inner, 10)
+	ctx := context.Background()
+
+	// First embed: miss
+	_, _ = cached.Embed(ctx, []string{"hello"})
+	// Second embed: hit
+	_, _ = cached.Embed(ctx, []string{"hello"})
+	// Third embed: new text, miss
+	_, _ = cached.Embed(ctx, []string{"world"})
+
+	stats := cached.Stats()
+	if stats.Hits != 1 {
+		t.Errorf("Stats.Hits = %d, want 1", stats.Hits)
+	}
+	if stats.Misses != 2 {
+		t.Errorf("Stats.Misses = %d, want 2", stats.Misses)
+	}
+	if stats.Evictions != 0 {
+		t.Errorf("Stats.Evictions = %d, want 0", stats.Evictions)
+	}
+	if stats.Size != 2 {
+		t.Errorf("Stats.Size = %d, want 2", stats.Size)
+	}
+	if stats.MaxSize != 10 {
+		t.Errorf("Stats.MaxSize = %d, want 10", stats.MaxSize)
+	}
+}
+
+func TestCachedProvider_Stats_Eviction(t *testing.T) {
+	p := embedding.NewCachedProvider(&embedding.NoopProvider{}, 2)
+	ctx := context.Background()
+
+	_, _ = p.Embed(ctx, []string{"a"})
+	_, _ = p.Embed(ctx, []string{"b"})
+	_, _ = p.Embed(ctx, []string{"c"}) // evicts "a"
+
+	stats := p.Stats()
+	if stats.Evictions != 1 {
+		t.Errorf("Stats.Evictions = %d, want 1", stats.Evictions)
+	}
+	if stats.Size != 2 {
+		t.Errorf("Stats.Size = %d, want 2 after eviction", stats.Size)
+	}
+}
+
+// — Google Vertex AI bearer auth test —
+
+func TestGoogleProvider_VertexAI_Bearer(t *testing.T) {
+	var gotAuth string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotAuth = r.Header.Get("Authorization")
+		// Ensure no ?key= in URL
+		if r.URL.RawQuery != "" {
+			t.Errorf("Vertex AI request should have no query params, got: %s", r.URL.RawQuery)
+		}
+		json.NewEncoder(w).Encode(map[string]any{
+			"embeddings": []map[string]any{
+				{"values": []float32{0.1, 0.2}},
+			},
+		})
+	}))
+	defer srv.Close()
+
+	// Fake a Vertex AI URL by injecting aiplatform.googleapis.com substring
+	vertexURL := srv.URL + "/aiplatform.googleapis.com"
+	p, err := embedding.NewGoogleProvider(embedding.Config{
+		APIKey:  "ya29.faketoken",
+		BaseURL: vertexURL,
+	})
+	if err != nil {
+		t.Fatalf("NewGoogleProvider: %v", err)
+	}
+
+	_, err = p.Embed(context.Background(), []string{"test"})
+	if err != nil {
+		t.Fatalf("Embed: %v", err)
+	}
+	if gotAuth != "Bearer ya29.faketoken" {
+		t.Errorf("Authorization = %q, want %q", gotAuth, "Bearer ya29.faketoken")
+	}
+}

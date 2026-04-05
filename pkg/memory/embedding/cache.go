@@ -6,7 +6,17 @@ import (
 "crypto/sha256"
 "encoding/hex"
 "sync"
+"sync/atomic"
 )
+
+// CacheStats holds lifetime counters for a CachedProvider.
+type CacheStats struct {
+	Hits      int64 // cache hits
+	Misses    int64 // cache misses (network calls made)
+	Evictions int64 // entries evicted due to capacity
+	Size      int   // current number of entries
+	MaxSize   int   // maximum capacity
+}
 
 const defaultCacheSize = 10000
 
@@ -22,11 +32,14 @@ vec []float32
 
 // CachedProvider wraps an inner Provider with an O(1) LRU cache.
 type CachedProvider struct {
-inner   Provider
-mu      sync.Mutex
-cache   map[string]*list.Element // key -> doubly-linked-list node
-order   *list.List               // front=LRU (oldest), back=MRU (newest)
-maxSize int
+inner     Provider
+mu        sync.Mutex
+cache     map[string]*list.Element // key -> doubly-linked-list node
+order     *list.List               // front=LRU (oldest), back=MRU (newest)
+maxSize   int
+hits      atomic.Int64
+misses    atomic.Int64
+evictions atomic.Int64
 }
 
 // NewCachedProvider wraps p with an LRU cache of maxSize entries.
@@ -71,9 +84,11 @@ for i, k := range keys {
 if el, ok := c.cache[k]; ok {
 result[i] = el.Value.(*cacheEntry).vec
 c.order.MoveToBack(el) // O(1) touch
+c.hits.Add(1)
 } else {
 missIdxs = append(missIdxs, i)
 missTexts = append(missTexts, texts[i])
+c.misses.Add(1)
 }
 }
 c.mu.Unlock()
@@ -110,6 +125,7 @@ oldest := c.order.Front()
 if oldest != nil {
 c.order.Remove(oldest)
 delete(c.cache, oldest.Value.(*cacheEntry).key)
+c.evictions.Add(1)
 }
 }
 el := c.order.PushBack(&cacheEntry{key: key, vec: v})
@@ -121,4 +137,18 @@ c.cache[key] = el
 func hashText(s string) string {
 h := sha256.Sum256([]byte(s))
 return hex.EncodeToString(h[:16]) // intentional 128-bit truncation
+}
+
+// Stats returns a snapshot of the cache counters. Thread-safe.
+func (c *CachedProvider) Stats() CacheStats {
+c.mu.Lock()
+size := c.order.Len()
+c.mu.Unlock()
+return CacheStats{
+Hits:      c.hits.Load(),
+Misses:    c.misses.Load(),
+Evictions: c.evictions.Load(),
+Size:      size,
+MaxSize:   c.maxSize,
+}
 }
