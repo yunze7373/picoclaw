@@ -51,6 +51,14 @@ func newSeahorseContextManager(_ json.RawMessage, al *AgentLoop) (ContextManager
 	al.RegisterTool(seahorse.NewGrepTool(retrieval))
 	al.RegisterTool(seahorse.NewExpandTool(retrieval))
 
+	// Register optional memory analysis tools
+	if al.cfg.IsToolEnabled("memory_stats") {
+		al.RegisterTool(seahorse.NewStatsTool(retrieval))
+	}
+	if al.cfg.IsToolEnabled("memory_health") {
+		al.RegisterTool(seahorse.NewHealthTool(retrieval))
+	}
+
 	// Bootstrap all existing sessions at startup
 	if agent.Sessions != nil {
 		ctx := context.Background()

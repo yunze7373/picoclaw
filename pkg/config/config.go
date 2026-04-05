@@ -35,6 +35,7 @@ type Config struct {
 	Gateway   GatewayConfig   `json:"gateway"            yaml:"-"`
 	Hooks     HooksConfig     `json:"hooks,omitempty"    yaml:"-"`
 	Tools     ToolsConfig     `json:"tools"              yaml:",inline"`
+	CloudMemory CloudMemoryConfig `json:"cloud_memory,omitempty" yaml:"-"`
 	Heartbeat HeartbeatConfig `json:"heartbeat"          yaml:"-"`
 	Devices   DevicesConfig   `json:"devices"            yaml:"-"`
 	Voice     VoiceConfig     `json:"voice"              yaml:"-"`
@@ -669,6 +670,33 @@ type ToolConfig struct {
 	Enabled bool `json:"enabled" yaml:"-" env:"ENABLED"`
 }
 
+// CloudMemoryConfig holds configuration for optional cloud-backed memory.
+// When Enabled is false (the default), the NoopStore is used with zero overhead.
+type CloudMemoryConfig struct {
+	// Enabled activates cloud memory sync. Default: false.
+	Enabled bool `json:"enabled" yaml:"-" env:"PICOCLAW_CLOUD_MEMORY_ENABLED"`
+
+	// Backend selects the cloud storage backend: "supabase" or "none".
+	Backend string `json:"backend" yaml:"-" env:"PICOCLAW_CLOUD_MEMORY_BACKEND"`
+
+	// BaseURL is the backend service URL (e.g., Supabase project URL).
+	BaseURL string `json:"base_url" yaml:"-" env:"PICOCLAW_CLOUD_MEMORY_BASE_URL"`
+
+	// APIKey is the authentication key for the backend service.
+	APIKey string `json:"api_key" yaml:"-" env:"PICOCLAW_CLOUD_MEMORY_API_KEY"`
+
+	// TableName overrides the default table name. Default: "memories".
+	TableName string `json:"table_name,omitempty" yaml:"-" env:"PICOCLAW_CLOUD_MEMORY_TABLE_NAME"`
+
+	// SyncIntervalSeconds sets how often local memories are synced to cloud.
+	// Default: 300 (5 minutes). Set to 0 to only sync on explicit trigger.
+	SyncIntervalSeconds int `json:"sync_interval_seconds,omitempty" yaml:"-" env:"PICOCLAW_CLOUD_MEMORY_SYNC_INTERVAL"`
+
+	// MaxMemories limits the number of memories stored in cloud per session.
+	// Default: 10000. Set to 0 for unlimited.
+	MaxMemories int `json:"max_memories,omitempty" yaml:"-" env:"PICOCLAW_CLOUD_MEMORY_MAX_MEMORIES"`
+}
+
 type BraveConfig struct {
 	Enabled    bool          `json:"enabled"           yaml:"-"                  env:"PICOCLAW_TOOLS_WEB_BRAVE_ENABLED"`
 	APIKeys    SecureStrings `json:"api_keys,omitzero" yaml:"api_keys,omitempty" env:"PICOCLAW_TOOLS_WEB_BRAVE_API_KEYS"`
@@ -873,6 +901,8 @@ type ToolsConfig struct {
 	SPI             ToolConfig         `json:"spi"               yaml:"-"                                                       envPrefix:"PICOCLAW_TOOLS_SPI_"`
 	Subagent        ToolConfig         `json:"subagent"          yaml:"-"                                                       envPrefix:"PICOCLAW_TOOLS_SUBAGENT_"`
 	TeamCreate      ToolConfig         `json:"team_create"       yaml:"-"                                                       envPrefix:"PICOCLAW_TOOLS_TEAM_CREATE_"`
+	MemoryStats     ToolConfig         `json:"memory_stats"      yaml:"-"                                                       envPrefix:"PICOCLAW_TOOLS_MEMORY_STATS_"`
+	MemoryHealth    ToolConfig         `json:"memory_health"     yaml:"-"                                                       envPrefix:"PICOCLAW_TOOLS_MEMORY_HEALTH_"`
 	WebFetch        ToolConfig         `json:"web_fetch"         yaml:"-"                                                       envPrefix:"PICOCLAW_TOOLS_WEB_FETCH_"`
 	WriteFile       ToolConfig         `json:"write_file"        yaml:"-"                                                       envPrefix:"PICOCLAW_TOOLS_WRITE_FILE_"`
 }
@@ -1354,6 +1384,10 @@ func (t *ToolsConfig) IsToolEnabled(name string) bool {
 		return t.Subagent.Enabled
 	case "team_create":
 		return t.TeamCreate.Enabled
+	case "memory_stats":
+		return t.MemoryStats.Enabled
+	case "memory_health":
+		return t.MemoryHealth.Enabled
 	case "web_fetch":
 		return t.WebFetch.Enabled
 	case "send_file":
