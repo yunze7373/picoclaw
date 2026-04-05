@@ -57,6 +57,7 @@ type AgentLoop struct {
 	mcp            mcpRuntime
 	hookRuntime    hookRuntime
 	steering       *steeringQueue
+	cloudMemory    *cloudMemoryStack
 	pendingSkills  sync.Map
 	mu             sync.RWMutex
 
@@ -156,6 +157,13 @@ func NewAgentLoop(
 
 	// Register shared tools to all agents (now that al is created)
 	registerSharedTools(al, cfg, msgBus, registry, provider)
+
+	// Initialize optional cloud memory subsystem
+	if cloudStack, err := initCloudMemory(cfg.CloudMemory, eventBus); err != nil {
+		logger.ErrorCF("agent", "cloud memory init failed", map[string]any{"error": err.Error()})
+	} else {
+		al.cloudMemory = cloudStack
+	}
 
 	return al
 }
@@ -748,6 +756,9 @@ func (al *AgentLoop) Close() {
 	}
 	if al.eventBus != nil {
 		al.eventBus.Close()
+	}
+	if al.cloudMemory != nil {
+		al.cloudMemory.Close()
 	}
 }
 

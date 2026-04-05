@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/sipeed/picoclaw/pkg/tools"
@@ -12,11 +11,11 @@ import (
 
 // StatsTool exposes memory statistics to the LLM agent.
 type StatsTool struct {
-	engine *RetrievalEngine
+	engine *Engine
 }
 
 // NewStatsTool creates a new memory statistics tool.
-func NewStatsTool(engine *RetrievalEngine) *StatsTool {
+func NewStatsTool(engine *Engine) *StatsTool {
 	return &StatsTool{engine: engine}
 }
 
@@ -81,70 +80,60 @@ type sessionStats struct {
 }
 
 func (t *StatsTool) Execute(ctx context.Context, params map[string]any) tools.ToolResult {
-	store := t.engine.Store()
-	if store == nil {
-		return tools.ToolResult{IsError: true, ForLLM: "memory store not available"}
-	}
-
 	sessionKey, _ := params["session_key"].(string)
 	includeSessions, _ := params["include_sessions"].(bool)
 
 	// Single session query
 	if sessionKey != "" {
-		status, err := store.GetSessionStatus(ctx, sessionKey)
+		ss, err := t.engine.GetSessionStats(ctx, sessionKey)
 		if err != nil {
 			return tools.ToolResult{IsError: true, ForLLM: fmt.Sprintf("query session: %v", err)}
 		}
-		if status == nil {
+		if ss == nil {
 			return tools.ToolResult{IsError: true, ForLLM: fmt.Sprintf("session %q not found", sessionKey)}
 		}
 
 		result := statsResult{
 			TotalSessions:  1,
-			TotalMessages:  status.Messages,
-			TotalTokens:    status.TotalTokens,
-			TotalSummaries: status.Summaries,
+			TotalMessages:  ss.Messages,
+			TotalTokens:    ss.Tokens,
+			TotalSummaries: ss.Summaries,
 			Sessions: []sessionStats{{
-				SessionKey: status.SessionKey,
-				Messages:   status.Messages,
-				Tokens:     status.TotalTokens,
-				Summaries:  status.Summaries,
-				OldestAt:   formatTime(status.OldestAt),
-				NewestAt:   formatTime(status.NewestAt),
+				SessionKey: ss.SessionKey,
+				Messages:   ss.Messages,
+				Tokens:     ss.Tokens,
+				Summaries:  ss.Summaries,
+				OldestAt:   formatTime(ss.OldestAt),
+				NewestAt:   formatTime(ss.NewestAt),
 			}},
 		}
 		return marshalResult(result)
 	}
 
-	// All sessions query
-	statuses, err := store.GetAllSessionStatuses(ctx)
+	// All sessions query — delegate to Engine.GetStats
+	es, err := t.engine.GetStats(ctx, includeSessions)
 	if err != nil {
 		return tools.ToolResult{IsError: true, ForLLM: fmt.Sprintf("query all sessions: %v", err)}
 	}
 
 	result := statsResult{
-		TotalSessions: len(statuses),
+		TotalSessions:  es.TotalSessions,
+		TotalMessages:  es.TotalMessages,
+		TotalTokens:    es.TotalTokens,
+		TotalSummaries: es.TotalSummaries,
+		DBSizeBytes:    es.DBSizeBytes,
 	}
 
-	for _, s := range statuses {
-		result.TotalMessages += s.Messages
-		result.TotalTokens += s.TotalTokens
-		result.TotalSummaries += s.Summaries
-
-		if includeSessions {
-			result.Sessions = append(result.Sessions, sessionStats{
-				SessionKey: s.SessionKey,
-				Messages:   s.Messages,
-				Tokens:     s.TotalTokens,
-				Summaries:  s.Summaries,
-				OldestAt:   formatTime(s.OldestAt),
-				NewestAt:   formatTime(s.NewestAt),
-			})
-		}
+	for _, s := range es.Sessions {
+		result.Sessions = append(result.Sessions, sessionStats{
+			SessionKey: s.SessionKey,
+			Messages:   s.Messages,
+			Tokens:     s.Tokens,
+			Summaries:  s.Summaries,
+			OldestAt:   formatTime(s.OldestAt),
+			NewestAt:   formatTime(s.NewestAt),
+		})
 	}
-
-	// Try to get DB file size
-	result.DBSizeBytes = getDBFileSize(store)
 
 	return marshalResult(result)
 }
@@ -155,24 +144,6 @@ func marshalResult(v any) tools.ToolResult {
 		return tools.ToolResult{IsError: true, ForLLM: fmt.Sprintf("marshal result: %v", err)}
 	}
 	return tools.ToolResult{ForLLM: string(data)}
-}
-
-func getDBFileSize(store *Store) int64 {
-	if store == nil || store.db == nil {
-		return 0
-	}
-	var dbPath string
-	row := store.db.QueryRow("PRAGMA database_list")
-	var seq int
-	var name string
-	if err := row.Scan(&seq, &name, &dbPath); err != nil {
-		return 0
-	}
-	info, err := os.Stat(dbPath)
-	if err != nil {
-		return 0
-	}
-	return info.Size()
 }
 
 func formatTime(t time.Time) string {
