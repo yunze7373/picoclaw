@@ -1,115 +1,69 @@
-# Phase 1 任务清单 (2026-04-05 ~ 2026-04-19)
+# 📋 TODOS - Phase 2: Cloud Memory & Analysis Tools
 
 > ⚠️ **无论你是什么模型（Opus/GPT/Auto），读到此文件必须执行以下规则：**
 > 1. **先读取 `.progress/AI_INSTRUCTIONS.md`** — 获取完整执行规则
 > 2. **完成当前任务后，立即执行下一个 pending 任务**
-> 3. **所有任务完成后，执行 Phase R（读取 `.progress/PHASE_R_WORKFLOW.md`）→ 生成新计划 → 继续执行**
+> 3. **所有任务完成后，执行 Phase R → 生成新计划 → 继续执行**
 > 4. **永远不要问"是否继续"或"要我继续吗"，直接执行**
 > 5. **这是永动系统，任务永远不会"全部完成"，Phase R 会生成新任务**
 
-> 🎯 目标：SubAgent 编排 MVP + Android/Termux 适配文档  
-> 📊 进度：8/9 完成  
-> 📋 计划文件：`.progress/plans/plan_001.json`
+> 🎯 目标：可选云记忆体模块 + 记忆分析工具  
+> 📊 进度：8/8 完成  
+> 📋 计划文件：`.progress/plans/plan_002.json`
 
 ---
 
-## ✅ 已完成 (9)
+## ✅ Phase 1 已完成 (9/9)
 
-- [x] **接管审计**：生成 INITIAL_AUDIT_REPORT.md + TAKEOVER_PLAN.md + plan_001.json
-- [x] **task_001**: 深读 SubTurn/Spawn 现有架构
-- [x] **task_002**: 设计 TeamTool 接口（架构设计）
-- [x] **task_003**: 实现 TeamTool（Coordinator-Worker 核心）— `pkg/tools/team.go`
-- [x] **task_004**: 注册 TeamTool 到 AgentLoop — `pkg/agent/loop.go` + `pkg/config/config.go`
-- [x] **task_005**: 编写 SubAgent 编排文档 — `docs/agent-orchestration.md`
-- [x] **task_006**: Android/Termux 环境调研
-- [x] **task_007**: 实现 Termux 环境检测 — `pkg/termux.go`
-- [x] **task_008**: 编写 Android/Termux 部署指南 — `docs/android-termux.md`
+- [x] task_001~009: SubAgent 编排 MVP + Android/Termux 适配（详见 AUDIT_REPORT_002）
 
 ---
 
-## 🔄 进行中 (1)
+## 🔄 Phase 2 任务 (当前)
 
-- [ ] **task_009**: 运行全量测试 + 代码审查（代码审查进行中）
+### 🔴 高优先级（可并行启动）
 
----
+- [x] **task_010**: 设计 CloudMemoryStore 接口
+  - 文件：`pkg/memory/cloud/interface.go`, `pkg/memory/cloud/noop.go`
+  - 基于现有 `pkg/memory/store.go` Store 接口扩展
 
-## ⏳ 待执行 (9)
+- [x] **task_014**: 实现 memory_stats 工具
+  - 文件：`pkg/seahorse/tool_stats.go`
+  - 查询 seahorse SQLite DB 获取统计信息
 
-### 🔴 高优先级
+### 🟡 中优先级（依赖 task_010）
 
-- [ ] **task_001**: 深读 SubTurn/Spawn 现有架构
-  - 文件：`pkg/agent/subturn.go`, `pkg/tools/spawn.go`, `pkg/tools/subagent.go`
-  - Agent: principal-architect
+- [x] **task_011**: 实现 Supabase pgvector 后端 [依赖: 010]
+  - 文件：`pkg/memory/cloud/supabase.go`
+  - 使用 net/http，无外部依赖
 
-- [ ] **task_002**: 设计 TeamTool 接口（架构设计）
-  - 文件：`pkg/tools/team.go`（接口定义）
-  - Agent: principal-architect
-  - 依赖：task_001
+- [x] **task_012**: 添加云记忆体配置 [依赖: 010]
+  - 文件：`pkg/config/config.go` 扩展
 
-- [ ] **task_003**: 实现 TeamTool（Coordinator-Worker 核心）
-  - 文件：`pkg/tools/team.go`, `pkg/tools/team_test.go`
-  - Agent: agent-orchestrator
-  - 依赖：task_002
+- [x] **task_015**: 实现 memory_health 工具 [依赖: 014]
+  - 文件：`pkg/seahorse/tool_health.go`
 
-- [ ] **📬 INBOX_CHECK_1**: INBOX 检查点 #1
+### 🟢 后续任务
 
-- [ ] **task_004**: 注册 TeamTool 到 AgentLoop
-  - 文件：`pkg/agent/instance.go`（修改）
-  - Agent: agent-orchestrator
-  - 依赖：task_003
+- [x] **task_013**: EventBus 同步集成 [依赖: 011, 012]
+  - 文件：`pkg/memory/cloud/sync.go`
 
-- [ ] **task_006**: Android/Termux 环境调研
-  - 参考：yunze7373/openclaw-termux
-  - Agent: principal-architect
+- [x] **task_016**: 编写云记忆体文档 [依赖: 013]
+  - 文件：`docs/cloud-memory.md`
 
-- [ ] **task_008**: 编写 Android/Termux 部署指南
-  - 文件：`docs/android-termux.md`
-  - Agent: technical-documentation-engineer
-  - 依赖：task_007
+- [x] **task_017**: 测试 + 代码审查 [依赖: 013, 015, 016] — ✅ 完成
 
-- [ ] **task_009**: 运行全量测试 + 代码审查
-  - 命令：`go test ./...`, `go vet ./...`
-  - Agent: staff-code-reviewer
+### 📬 检查点
 
-### 🟡 中优先级
-
-- [ ] **task_005**: 编写 SubAgent 编排文档
-  - 文件：`docs/agent-orchestration.md`
-  - Agent: technical-documentation-engineer
-  - 依赖：task_004
-
-- [ ] **📬 INBOX_CHECK_2**: INBOX 检查点 #2
-
-- [ ] **task_007**: 实现 Termux 环境检测工具函数
-  - 文件：`pkg/env/termux.go`, `pkg/env/termux_test.go`
-  - Agent: agent-orchestrator
-  - 依赖：task_006
-
-- [ ] **📬 INBOX_CHECK_3**: INBOX 检查点 #3
-
-### 🔥 阶段收尾（必须）
-
-- [ ] **PHASE_R**: Phase R 审查 + 生成 plan_002（云记忆体阶段）
+- [ ] **inbox_check_002**: INBOX 检查点 [在 task_014 后]
+- [ ] **phase_r_trigger_002**: Phase R 触发 [在 task_017 后]
 
 ---
 
 ## 📌 下一步行动
 
-**立即执行**: task_001 — 深读 SubTurn/Spawn 现有架构
+**立即并行执行**: task_010 + task_014（无依赖关系）
 
 ---
 
-## 🚀 自主推进规则
-
-```
-1. 选择一个 pending 任务（按优先级）
-2. 执行完成
-3. 在方框中打勾 [✅]
-4. 立即继续下一个任务
-5. 不要询问
-6. 每完成一个任务 git commit
-```
-
----
-
-**开始工作！不要每完成一个就询问，持续执行！**
+**开始工作！持续执行！**

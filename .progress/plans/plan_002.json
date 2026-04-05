@@ -1,0 +1,80 @@
+{
+  "plan_id": "plan_002",
+  "phase": "Phase 2 - Cloud Memory & Analysis Tools",
+  "created": "2026-04-05",
+  "based_on": ["TAKEOVER_PLAN Focus 3", "TAKEOVER_PLAN Focus 4", "AUDIT_REPORT_002"],
+  "tasks": [
+    {
+      "id": "task_010",
+      "title": "Design CloudMemoryStore interface",
+      "description": "Create pkg/memory/cloud/interface.go with CloudMemoryStore interface. Must be compatible with existing Store interface in pkg/memory/store.go. Include Memory struct, SimilaritySearch, UpsertMemory, SyncToCloud, HealthCheck methods. Also create pkg/memory/cloud/noop.go as default no-op implementation.",
+      "depends_on": [],
+      "status": "pending"
+    },
+    {
+      "id": "task_011",
+      "title": "Implement Supabase pgvector backend",
+      "description": "Create pkg/memory/cloud/supabase.go implementing CloudMemoryStore. Use net/http (no external deps). Support pgvector similarity search via Supabase REST API. Include connection pooling, retry logic, graceful degradation on network failure.",
+      "depends_on": ["task_010"],
+      "status": "pending"
+    },
+    {
+      "id": "task_012",
+      "title": "Add cloud memory config",
+      "description": "Extend pkg/config/config.go with CloudMemory config section: enabled (default false), backend (supabase|none), connection_string, sync_interval, max_memories. Add to ToolsConfig or new top-level section.",
+      "depends_on": ["task_010"],
+      "status": "pending"
+    },
+    {
+      "id": "task_013",
+      "title": "EventBus sync integration",
+      "description": "Subscribe to EventKindSessionSummarize in EventBus to trigger async cloud sync. Create pkg/memory/cloud/sync.go with SyncManager that batches and debounces sync operations. Wire into agent initialization in pkg/agent/ when cloud memory enabled.",
+      "depends_on": ["task_011", "task_012"],
+      "status": "pending"
+    },
+    {
+      "id": "task_014",
+      "title": "Implement memory_stats tool",
+      "description": "Create pkg/tools/memory_stats.go - a Tool that exposes seahorse memory statistics: message count, summary count, token usage, compression ratio, session list. Query seahorse DB directly via SQL. Register in agent loop behind config flag.",
+      "depends_on": [],
+      "status": "pending"
+    },
+    {
+      "id": "task_015",
+      "title": "Implement memory_health tool",
+      "description": "Create pkg/tools/memory_health.go - a Tool that checks: SQLite integrity (PRAGMA integrity_check), WAL status, DB size, FTS5 index health, cloud sync status (if enabled). Register in agent loop behind config flag.",
+      "depends_on": ["task_014"],
+      "status": "pending"
+    },
+    {
+      "id": "task_016",
+      "title": "Write cloud memory documentation",
+      "description": "Create docs/cloud-memory.md covering: architecture overview, Supabase setup guide, config reference, sync behavior, privacy considerations, troubleshooting. Also create config example file.",
+      "depends_on": ["task_013"],
+      "status": "pending"
+    },
+    {
+      "id": "task_017",
+      "title": "Tests + code review",
+      "description": "Write tests for all new code. Static analysis. Code review for security (connection strings), concurrency (sync manager), and error handling (network failures). Fix any findings.",
+      "depends_on": ["task_013", "task_015", "task_016"],
+      "status": "pending"
+    },
+    {
+      "id": "inbox_check_002",
+      "title": "INBOX checkpoint",
+      "type": "inbox_checkpoint",
+      "description": "Read INBOX.md for any new user instructions mid-phase.",
+      "depends_on": ["task_014"],
+      "status": "pending"
+    },
+    {
+      "id": "phase_r_trigger_002",
+      "title": "Phase R trigger",
+      "type": "phase_r_trigger",
+      "description": "Trigger Phase R: audit, report, new plan generation, immediate continue.",
+      "depends_on": ["task_017"],
+      "status": "pending"
+    }
+  ]
+}
