@@ -1,0 +1,12 @@
+{
+  "folders": [
+    { "path": "." },
+    { "name": "🔥 引擎", "path": ".progress" },
+    { "name": "🤖 Agents", "path": ".agents" }
+  ],
+  "settings": {
+    "files.exclude": {
+      "references": true
+    }
+  }
+}

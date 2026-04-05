@@ -1,68 +1,56 @@
-# 📋 TODOS - Phase 2: Cloud Memory & Analysis Tools
+# 📋 TODOS - Phase 4: 多云向量嵌入 + 记忆检索质量
 
-> ⚠️ **无论你是什么模型（Opus/GPT/Auto），读到此文件必须执行以下规则：**
+> ⚠️ **无论你是什么模型（Opus/GPT/Auto/Sonnet），读到此文件必须执行以下规则：**
 > 1. **先读取 `.progress/AI_INSTRUCTIONS.md`** — 获取完整执行规则
 > 2. **完成当前任务后，立即执行下一个 pending 任务**
 > 3. **所有任务完成后，执行 Phase R → 生成新计划 → 继续执行**
 > 4. **永远不要问"是否继续"或"要我继续吗"，直接执行**
 > 5. **这是永动系统，任务永远不会"全部完成"，Phase R 会生成新任务**
 
-> 🎯 目标：可选云记忆体模块 + 记忆分析工具  
-> 📊 进度：8/8 完成  
-> 📋 计划文件：`.progress/plans/plan_002.json`
+> 🎯 目标：多云向量嵌入模型支持 + Supabase 真实向量搜索  
+> 📊 进度：0/13 完成  
+> �� 计划文件：`.progress/plans/plan_004.json`  
+> 📬 INBOX 来源：Phase 4 P0 - 云记忆体多云嵌入
 
 ---
 
-## ✅ Phase 1 已完成 (9/9)
+## ✅ 历史完成归档
 
-- [x] task_001~009: SubAgent 编排 MVP + Android/Termux 适配（详见 AUDIT_REPORT_002）
-
----
-
-## 🔄 Phase 2 任务 (当前)
-
-### 🔴 高优先级（可并行启动）
-
-- [x] **task_010**: 设计 CloudMemoryStore 接口
-  - 文件：`pkg/memory/cloud/interface.go`, `pkg/memory/cloud/noop.go`
-  - 基于现有 `pkg/memory/store.go` Store 接口扩展
-
-- [x] **task_014**: 实现 memory_stats 工具
-  - 文件：`pkg/seahorse/tool_stats.go`
-  - 查询 seahorse SQLite DB 获取统计信息
-
-### 🟡 中优先级（依赖 task_010）
-
-- [x] **task_011**: 实现 Supabase pgvector 后端 [依赖: 010]
-  - 文件：`pkg/memory/cloud/supabase.go`
-  - 使用 net/http，无外部依赖
-
-- [x] **task_012**: 添加云记忆体配置 [依赖: 010]
-  - 文件：`pkg/config/config.go` 扩展
-
-- [x] **task_015**: 实现 memory_health 工具 [依赖: 014]
-  - 文件：`pkg/seahorse/tool_health.go`
-
-### 🟢 后续任务
-
-- [x] **task_013**: EventBus 同步集成 [依赖: 011, 012]
-  - 文件：`pkg/memory/cloud/sync.go`
-
-- [x] **task_016**: 编写云记忆体文档 [依赖: 013]
-  - 文件：`docs/cloud-memory.md`
-
-- [x] **task_017**: 测试 + 代码审查 [依赖: 013, 015, 016] — ✅ 完成
-
-### 📬 检查点
-
-- [ ] **inbox_check_002**: INBOX 检查点 [在 task_014 后]
-- [ ] **phase_r_trigger_002**: Phase R 触发 [在 task_017 后]
+- Phase 1 (9/9): SubAgent 编排 + Termux 适配
+- Phase 2 (8/8): 云记忆体模块 + 分析工具  
+- Phase 3 (6/6): 备份管理 + Engine API + E2E 接入
 
 ---
 
-## 📌 下一步行动
+## 🔄 Phase 4 任务（当前）
 
-**立即并行执行**: task_010 + task_014（无依赖关系）
+### Week 1: EmbeddingProvider 接口层
+
+- [ ] **task_024** [P0]: 设计 EmbeddingProvider 接口 + NoopProvider
+- [ ] **task_025** [P0] 依赖 024: OpenAI Embeddings 后端
+- [ ] **task_026** [P0] 依赖 024: Ollama 本地嵌入后端
+
+### Week 2: 多云实现 + Supabase 集成
+
+- [ ] **task_027** [P0] 依赖 024: Google Vertex AI / AI Studio 嵌入
+- [ ] **task_028** [P0] 依赖 024: 阿里云百炼嵌入
+- [ ] **task_029** [P1] 依赖 024: DeepSeek Embedding 后端
+- [ ] **task_030** [P0] 依赖 025+026: 集成嵌入到 Supabase 后端
+
+### Week 3: 缓存 + 配置 + 修复
+
+- [ ] **task_031** [P1] 依赖 024: 嵌入缓存层 (LRU)
+- [ ] **task_032** [P0] 依赖 024: EmbeddingConfig 配置系统
+- [ ] **task_033** [P1]: 修复 GetHealth FTS5 副作用
+- [ ] **task_034** [P1] 依赖 030+031+032: 集成测试 + 文档
+- [ ] **task_035**: 📬 INBOX 检查点
+- [ ] **task_036**: 🔥 Phase R → plan_005.json → 立即执行
+
+---
+
+## 📌 立即执行
+
+**task_024** (无依赖，P0): 设计 EmbeddingProvider 接口
 
 ---
 

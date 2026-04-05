@@ -44,21 +44,21 @@ Returns:
 }`
 }
 
-func (t *StatsTool) Parameters() json.RawMessage {
-	return json.RawMessage(`{
+func (t *StatsTool) Parameters() map[string]any {
+	return map[string]any{
 		"type": "object",
-		"properties": {
-			"session_key": {
-				"type": "string",
-				"description": "Specific session key to query. Omit for aggregate stats."
+		"properties": map[string]any{
+			"session_key": map[string]any{
+				"type":        "string",
+				"description": "Specific session key to query. Omit for aggregate stats.",
 			},
-			"include_sessions": {
-				"type": "boolean",
+			"include_sessions": map[string]any{
+				"type":        "boolean",
 				"description": "If true, include per-session breakdown.",
-				"default": false
-			}
-		}
-	}`)
+				"default":     false,
+			},
+		},
+	}
 }
 
 type statsResult struct {
@@ -79,7 +79,7 @@ type sessionStats struct {
 	NewestAt    string `json:"newest_at,omitempty"`
 }
 
-func (t *StatsTool) Execute(ctx context.Context, params map[string]any) tools.ToolResult {
+func (t *StatsTool) Execute(ctx context.Context, params map[string]any) *tools.ToolResult {
 	sessionKey, _ := params["session_key"].(string)
 	includeSessions, _ := params["include_sessions"].(bool)
 
@@ -87,10 +87,10 @@ func (t *StatsTool) Execute(ctx context.Context, params map[string]any) tools.To
 	if sessionKey != "" {
 		ss, err := t.engine.GetSessionStats(ctx, sessionKey)
 		if err != nil {
-			return tools.ToolResult{IsError: true, ForLLM: fmt.Sprintf("query session: %v", err)}
+			return tools.ErrorResult(fmt.Sprintf("query session: %v", err))
 		}
 		if ss == nil {
-			return tools.ToolResult{IsError: true, ForLLM: fmt.Sprintf("session %q not found", sessionKey)}
+			return tools.ErrorResult(fmt.Sprintf("session %q not found", sessionKey))
 		}
 
 		result := statsResult{
@@ -113,7 +113,7 @@ func (t *StatsTool) Execute(ctx context.Context, params map[string]any) tools.To
 	// All sessions query — delegate to Engine.GetStats
 	es, err := t.engine.GetStats(ctx, includeSessions)
 	if err != nil {
-		return tools.ToolResult{IsError: true, ForLLM: fmt.Sprintf("query all sessions: %v", err)}
+		return tools.ErrorResult(fmt.Sprintf("query all sessions: %v", err))
 	}
 
 	result := statsResult{
@@ -138,12 +138,12 @@ func (t *StatsTool) Execute(ctx context.Context, params map[string]any) tools.To
 	return marshalResult(result)
 }
 
-func marshalResult(v any) tools.ToolResult {
+func marshalResult(v any) *tools.ToolResult {
 	data, err := json.Marshal(v)
 	if err != nil {
-		return tools.ToolResult{IsError: true, ForLLM: fmt.Sprintf("marshal result: %v", err)}
+		return tools.ErrorResult(fmt.Sprintf("marshal result: %v", err))
 	}
-	return tools.ToolResult{ForLLM: string(data)}
+	return &tools.ToolResult{ForLLM: string(data)}
 }
 
 func formatTime(t time.Time) string {

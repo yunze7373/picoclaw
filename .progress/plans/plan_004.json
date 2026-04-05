@@ -1,0 +1,157 @@
+{
+  "plan_id": "plan_004_phase4",
+  "phase": 4,
+  "theme": "多云向量嵌入 + 记忆检索质量",
+  "created_at": "2026-04-05",
+  "inbox_source": "INBOX.md - Phase 4 P0 新需求",
+  "weeks": {
+    "week01": {
+      "goal": "EmbeddingProvider 接口层 + 核心实现",
+      "tasks": [
+        {
+          "id": "task_024",
+          "title": "设计 EmbeddingProvider 接口",
+          "priority": "P0",
+          "files": [
+            "pkg/memory/embedding/interface.go",
+            "pkg/memory/embedding/noop.go"
+          ],
+          "description": "定义 EmbeddingProvider 接口: Embed(ctx, texts []string) ([][]float32, error), Model() string, Dims() int。创建 NoopProvider (零向量，compile-time check)。在 CloudMemoryConfig 中添加 EmbeddingConfig。"
+        },
+        {
+          "id": "task_025",
+          "title": "实现 OpenAI Embeddings 后端",
+          "priority": "P0",
+          "depends_on": ["task_024"],
+          "files": ["pkg/memory/embedding/openai.go", "pkg/memory/embedding/openai_test.go"],
+          "description": "使用 net/http 实现 OpenAI text-embedding-3-large/small API。支持 batch 请求。配置: model, api_key, base_url (支持 Azure/自定义)。"
+        },
+        {
+          "id": "task_026",
+          "title": "实现 Ollama 本地嵌入后端",
+          "priority": "P0",
+          "depends_on": ["task_024"],
+          "files": ["pkg/memory/embedding/ollama.go", "pkg/memory/embedding/ollama_test.go"],
+          "description": "Ollama REST API 嵌入支持。配置: base_url (default: http://localhost:11434), model。用于本地/Termux 场景，无需 API key。"
+        }
+      ]
+    },
+    "week02": {
+      "goal": "多云嵌入实现 + Supabase 向量搜索集成",
+      "tasks": [
+        {
+          "id": "task_027",
+          "title": "实现 Google Vertex AI / AI Studio 嵌入",
+          "priority": "P0",
+          "depends_on": ["task_024"],
+          "files": ["pkg/memory/embedding/google.go", "pkg/memory/embedding/google_test.go"],
+          "description": "Google textembedding-005 和 multilingual-e5-large。支持 AI Studio API key 和 Vertex AI service account。"
+        },
+        {
+          "id": "task_028",
+          "title": "实现阿里云百炼嵌入后端",
+          "priority": "P0",
+          "depends_on": ["task_024"],
+          "files": ["pkg/memory/embedding/aliyun.go", "pkg/memory/embedding/aliyun_test.go"],
+          "description": "阿里云百炼 text-embedding-v2/v3 API。配置: api_key, model (text-embedding-v3)。"
+        },
+        {
+          "id": "task_029",
+          "title": "实现 DeepSeek Embedding 后端",
+          "priority": "P1",
+          "depends_on": ["task_024"],
+          "files": ["pkg/memory/embedding/deepseek.go", "pkg/memory/embedding/deepseek_test.go"],
+          "description": "DeepSeek 嵌入 API。配置: api_key, model。复用 OpenAI 兼容接口。"
+        },
+        {
+          "id": "task_030",
+          "title": "集成嵌入到 Supabase 后端",
+          "priority": "P0",
+          "depends_on": ["task_025", "task_026"],
+          "files": ["pkg/memory/cloud/supabase.go"],
+          "description": "Supabase SupabaseStore.UpsertMemory 和 UpsertBatch 在写入前调用 EmbeddingProvider 生成向量。SimilaritySearch 改为先嵌入 query 再做 pgvector 向量搜索。保持向后兼容：无 embedding provider 时降级为文本搜索。"
+        }
+      ]
+    },
+    "week03": {
+      "goal": "嵌入缓存 + 配置系统 + 质量修复",
+      "tasks": [
+        {
+          "id": "task_031",
+          "title": "嵌入缓存层",
+          "priority": "P1",
+          "depends_on": ["task_024"],
+          "files": ["pkg/memory/embedding/cache.go", "pkg/memory/embedding/cache_test.go"],
+          "description": "基于内容 hash 的内存缓存，避免重复 API 调用。LRU 策略，max 10000 条。线程安全。"
+        },
+        {
+          "id": "task_032",
+          "title": "EmbeddingConfig + 配置系统集成",
+          "priority": "P0",
+          "depends_on": ["task_024"],
+          "files": ["pkg/config/config.go"],
+          "description": "在 CloudMemoryConfig 中添加 EmbeddingConfig: { enabled, backend, model, api_key, base_url, cache_size }. Backend 枚举: openai, google, aliyun, deepseek, ollama, none。"
+        },
+        {
+          "id": "task_033",
+          "title": "修复 GetHealth FTS5 副作用",
+          "priority": "P1",
+          "files": ["pkg/seahorse/stats.go"],
+          "description": "将 GetHealth() 中的 FTS5 integrity check 从 INSERT 改为只读 SELECT 查询: SELECT * FROM summaries_fts('integrity-check')。消除写入副作用。"
+        },
+        {
+          "id": "task_034",
+          "title": "集成测试 + 文档",
+          "priority": "P1",
+          "depends_on": ["task_030", "task_031", "task_032"],
+          "files": [
+            "pkg/memory/embedding/integration_test.go",
+            "docs/cloud-memory.md",
+            "docs/embedding-providers.md"
+          ],
+          "description": "嵌入 provider E2E 测试（httptest mock）。更新 cloud-memory.md 添加嵌入配置章节。新增 docs/embedding-providers.md 配置指南。"
+        },
+        {
+          "id": "task_035_inbox_check",
+          "title": "📬 INBOX 检查点",
+          "type": "meta",
+          "priority": "critical",
+          "description": "读取 .progress/INBOX.md，处理新指令，纳入当前执行计划。"
+        },
+        {
+          "id": "task_036_phase_r",
+          "title": "🔥 Phase R 审查 + 生成 Phase 5 计划",
+          "type": "meta",
+          "priority": "critical",
+          "auto_trigger": true,
+          "description": "所有任务完成后自动执行：1) 读取 INBOX.md 2) 生成 AUDIT_REPORT_004.md 3) 创建 plan_005.json 4) 立即执行新计划第一个任务，不要询问"
+        }
+      ],
+      "phase_r_trigger": {
+        "auto_execute": true,
+        "tasks": [
+          "Read .progress/INBOX.md for new instructions",
+          "Execute Phase R review",
+          "Generate AUDIT_REPORT_004.md in docs/review/",
+          "Create plan_005.json in .progress/plans/",
+          "Update PROGRESS_STATUS.json and TODOS.md",
+          "Continue executing new plan's first task immediately"
+        ]
+      }
+    }
+  },
+  "summary": {
+    "total_tasks": 13,
+    "p0_tasks": 7,
+    "p1_tasks": 4,
+    "meta_tasks": 2,
+    "key_deliverables": [
+      "EmbeddingProvider interface + 5 backends (OpenAI, Google, 阿里云, DeepSeek, Ollama)",
+      "Embedding cache (LRU, hash-based, thread-safe)",
+      "Supabase vector search with real embeddings",
+      "EmbeddingConfig in CloudMemoryConfig",
+      "Fix GetHealth FTS5 side effect",
+      "docs/embedding-providers.md"
+    ]
+  }
+}

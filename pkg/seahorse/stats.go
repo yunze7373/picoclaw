@@ -129,15 +129,17 @@ func (e *Engine) GetHealth(ctx context.Context) (*EngineHealth, error) {
 	// 4. DB file size
 	result.DBSizeBytes = e.getDBSize()
 
-	// 5. FTS5 integrity
+	// 5. FTS5 presence check (read-only)
 	fts5OK := true
-	if _, err := db.ExecContext(ctx, "INSERT INTO summaries_fts(summaries_fts) VALUES('integrity-check')"); err != nil {
+	var ftsCount int
+	if err := db.QueryRowContext(ctx,
+		"SELECT count(*) FROM sqlite_master WHERE type='table' AND name IN ('summaries_fts','messages_fts')",
+	).Scan(&ftsCount); err != nil {
 		fts5OK = false
-		result.Issues = append(result.Issues, "FTS5 summaries issue: "+err.Error())
-	}
-	if _, err := db.ExecContext(ctx, "INSERT INTO messages_fts(messages_fts) VALUES('integrity-check')"); err != nil {
+		result.Issues = append(result.Issues, "FTS5 check failed: "+err.Error())
+	} else if ftsCount != 2 {
 		fts5OK = false
-		result.Issues = append(result.Issues, "FTS5 messages issue: "+err.Error())
+		result.Issues = append(result.Issues, "FTS5 tables missing from schema")
 	}
 	result.FTS5OK = fts5OK
 	if !fts5OK {

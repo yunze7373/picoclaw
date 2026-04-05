@@ -22,12 +22,14 @@ type BackupManager struct {
 	provider  BackupProvider
 	interval  time.Duration
 	mu        sync.Mutex
+	runMu     sync.Mutex
 	lastRun   time.Time
 	startOnce sync.Once
 	stopOnce  sync.Once
 	cancel    context.CancelFunc
 	done      chan struct{}
 	onError   func(err error)
+	started   bool
 }
 
 // BackupManagerConfig configures the backup manager.
@@ -58,13 +60,18 @@ func NewBackupManager(store CloudMemoryStore, provider BackupProvider, cfg Backu
 func (m *BackupManager) Start(ctx context.Context) {
 	m.startOnce.Do(func() {
 		ctx, m.cancel = context.WithCancel(ctx)
+		m.started = true
 		go m.loop(ctx)
 	})
 }
 
 // Stop gracefully shuts down the backup manager.
+// Safe to call even if Start was never called.
 func (m *BackupManager) Stop() {
 	m.stopOnce.Do(func() {
+		if !m.started {
+			return
+		}
 		if m.cancel != nil {
 			m.cancel()
 		}
@@ -99,6 +106,10 @@ func (m *BackupManager) loop(ctx context.Context) {
 }
 
 func (m *BackupManager) runBackup(ctx context.Context) (*SyncStats, error) {
+	// runMu prevents concurrent backups (TOCTOU race between RunNow and the loop).
+	m.runMu.Lock()
+	defer m.runMu.Unlock()
+
 	m.mu.Lock()
 	since := m.lastRun
 	m.mu.Unlock()

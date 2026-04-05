@@ -2,7 +2,6 @@ package seahorse
 
 import (
 	"context"
-	"encoding/json"
 
 	"github.com/sipeed/picoclaw/pkg/tools"
 )
@@ -42,8 +41,11 @@ Returns:
 }`
 }
 
-func (t *HealthTool) Parameters() json.RawMessage {
-	return json.RawMessage(`{"type": "object", "properties": {}}`)
+func (t *HealthTool) Parameters() map[string]any {
+	return map[string]any{
+		"type":       "object",
+		"properties": map[string]any{},
+	}
 }
 
 type healthResult struct {
@@ -57,10 +59,10 @@ type healthResult struct {
 	Issues      []string `json:"issues"`
 }
 
-func (t *HealthTool) Execute(ctx context.Context, _ map[string]any) tools.ToolResult {
+func (t *HealthTool) Execute(ctx context.Context, _ map[string]any) *tools.ToolResult {
 	h, err := t.engine.GetHealth(ctx)
 	if err != nil {
-		return tools.ToolResult{IsError: true, ForLLM: "health check failed: " + err.Error()}
+		return tools.ErrorResult("health check failed: " + err.Error())
 	}
 
 	result := healthResult{

@@ -23,6 +23,7 @@ type SyncManager struct {
 	startOnce sync.Once
 	stopOnce  sync.Once
 	cancel    context.CancelFunc
+	started   bool
 }
 
 // SyncManagerConfig configures the SyncManager behavior.
@@ -70,6 +71,7 @@ func NewSyncManager(store CloudMemoryStore, cfg SyncManagerConfig) *SyncManager 
 func (m *SyncManager) Start(ctx context.Context) {
 	m.startOnce.Do(func() {
 		ctx, m.cancel = context.WithCancel(ctx)
+		m.started = true
 		go m.loop(ctx)
 	})
 }
@@ -92,8 +94,12 @@ func (m *SyncManager) Enqueue(memories ...Memory) {
 }
 
 // Stop gracefully shuts down the sync manager, flushing any pending memories.
+// Safe to call even if Start was never called.
 func (m *SyncManager) Stop() {
 	m.stopOnce.Do(func() {
+		if !m.started {
+			return
+		}
 		if m.cancel != nil {
 			m.cancel()
 		}

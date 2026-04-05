@@ -1,0 +1,576 @@
+{
+  "version": "1.0.0",
+  "description": "Agent registry for dynamic discovery and routing",
+  "agents": [
+    {
+      "id": "agent-orchestrator",
+      "name": "Agent Orchestrator",
+      "file": "agent-orchestrator.md",
+      "model": "opus",
+      "category": "orchestration",
+      "description": "Primary routing layer for software engineering requests. Determines intent, selects expert agents, and coordinates workflows.",
+      "triggers": [
+        "multi-step",
+        "pipeline",
+        "parallel",
+        "coordinate",
+        "workflow"
+      ],
+      "tools": ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "LS"],
+      "executionModes": ["SINGLE", "PIPELINE", "PARALLEL_WORKTREE", "ARCHITECTURE", "INCIDENT"],
+      "pipelines": {
+        "large_project": ["parallel_worktrees", "staff-code-reviewer", "semantic-commit-generator"],
+        "code_quality": ["staff-code-reviewer", "principal-refactoring-engineer", "software-test-engineer", "semantic-commit-generator"],
+        "new_feature": ["principal-architect", "senior-ui-ux-designer", "implement", "software-test-engineer", "technical-documentation-engineer", "semantic-commit-generator"],
+        "incident": ["root-cause-debugging-engineer", "fix", "software-test-engineer", "semantic-commit-generator"],
+        "ui_redesign": ["senior-ui-ux-designer", "implement", "staff-code-reviewer", "semantic-commit-generator"]
+      }
+    },
+    {
+      "id": "principal-architect",
+      "name": "Principal Architect",
+      "file": "principal-architect.md",
+      "model": "opus",
+      "category": "design",
+      "description": "System design, architecture patterns, technical decisions, module boundaries, and scalability planning.",
+      "triggers": [
+        "design",
+        "architecture",
+        "system design",
+        "technical decision",
+        "module boundaries",
+        "technology stack",
+        "scalability",
+        "microservices",
+        "monolith"
+      ],
+      "tools": ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "LS"],
+      "responsibilities": [
+        "System boundaries and ownership",
+        "Domain models and bounded contexts",
+        "Data flow and state management",
+        "Scalability paths and performance tuning",
+        "Operational realities and observability"
+      ],
+      "outputSections": [
+        "System Context",
+        "Constraints & Assumptions",
+        "Architecture Style & Rationale",
+        "Module / Service Design",
+        "Data Flow",
+        "Communication Model",
+        "Scalability Strategy",
+        "Reliability & Fault Tolerance",
+        "Observability",
+        "Security Model",
+        "Deployment Model",
+        "Evolution Path"
+      ]
+    },
+    {
+      "id": "principal-performance-engineer",
+      "name": "Principal Performance Engineer",
+      "file": "principal-performance-engineer.md",
+      "model": "opus",
+      "category": "optimization",
+      "description": "Performance optimization for latency, throughput, memory efficiency, and scalability.",
+      "triggers": [
+        "performance",
+        "slow",
+        "latency",
+        "throughput",
+        "memory",
+        "bottleneck",
+        "optimize",
+        "scalability",
+        "太慢了",
+        "优化性能",
+        "提升速度",
+        "减少内存"
+      ],
+      "tools": ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "LS"],
+      "analysisMethodology": [
+        "Performance Model",
+        "Complexity Analysis",
+        "Hot Path Detection",
+        "Resource Bottleneck Classification"
+      ],
+      "bottleneckTypes": ["CPU-bound", "Memory-bound", "IO-bound", "Lock/Contention-bound"],
+      "optimizationPriorities": [
+        "Algorithmic improvement",
+        "Data structure improvement",
+        "Elimination of redundant work",
+        "Batching",
+        "Caching",
+        "Concurrency",
+        "Infrastructure tuning"
+      ],
+      "outputSections": [
+        "Performance Model",
+        "Hot Path",
+        "Bottleneck Type",
+        "Optimization Plan (Ranked by ROI)",
+        "Optimized Code / Architecture",
+        "Expected Gain",
+        "Benchmark Strategy"
+      ]
+    },
+    {
+      "id": "principal-refactoring-engineer",
+      "name": "Principal Refactoring Engineer",
+      "file": "principal-refactoring-engineer.md",
+      "model": "opus",
+      "category": "improvement",
+      "description": "Improve code structure, readability, and maintainability without changing observable behavior.",
+      "triggers": [
+        "refactor",
+        "重构",
+        "improve this code",
+        "clean up",
+        "代码太乱了",
+        "maintainable",
+        "simplify",
+        "messy",
+        "smell"
+      ],
+      "tools": ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "LS"],
+      "codeSmellCategories": {
+        "structural": [
+          "God function",
+          "Large class",
+          "Long parameter list",
+          "Deep nesting",
+          "Shotgun surgery",
+          "Divergent change"
+        ],
+        "readability": [
+          "Unclear naming",
+          "Magic values",
+          "Implicit behavior",
+          "Mixed abstraction levels"
+        ],
+        "design": [
+          "SRP violation",
+          "Tight coupling",
+          "Low cohesion",
+          "Feature envy",
+          "Primitive obsession"
+        ]
+      },
+      "refactoringTechniques": [
+        "Extract function",
+        "Extract class",
+        "Introduce parameter object",
+        "Replace conditional with polymorphism",
+        "Dependency injection",
+        "Pure function isolation",
+        "Move method",
+        "Split phase",
+        "Replace algorithm"
+      ],
+      "outputSections": [
+        "Behavioral Model",
+        "Detected Code Smells",
+        "Refactoring Strategy",
+        "Step-by-Step Refactor Plan",
+        "Refactored Code",
+        "Behavior Preservation Notes",
+        "Maintainability Gains"
+      ]
+    },
+    {
+      "id": "root-cause-debugging-engineer",
+      "name": "Root Cause Debugging Engineer",
+      "file": "root-cause-debugging-engineer.md",
+      "model": "opus",
+      "category": "debugging",
+      "description": "Systematic root-cause analysis for bugs, errors, and production incidents.",
+      "triggers": [
+        "debug",
+        "bug",
+        "error",
+        "为什么报错",
+        "这个错误",
+        "运行失败",
+        "出问题了",
+        "帮我排查",
+        "incident",
+        "production issue",
+        "fix bug"
+      ],
+      "tools": ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "LS"],
+      "debuggingMethodology": [
+        "Symptom Modeling",
+        "System Context Reconstruction",
+        "Root Cause Hypothesis Ranking",
+        "Minimal Reproduction Strategy",
+        "Verification Plan",
+        "Fix",
+        "Prevention Strategy"
+      ],
+      "failureModeExpertise": [
+        "Logic Errors",
+        "Type & Schema Errors",
+        "Async & Concurrency",
+        "Distributed Systems",
+        "Dependency & Environment"
+      ],
+      "outputSections": [
+        "Observed Symptoms",
+        "Reconstructed Execution Path",
+        "Root Cause Candidates (Ranked)",
+        "Verification Steps",
+        "Recommended Fix",
+        "Prevention Strategy"
+      ]
+    },
+    {
+      "id": "software-test-engineer",
+      "name": "Software Test Engineer",
+      "file": "software-test-engineer.md",
+      "model": "opus",
+      "category": "testing",
+      "description": "Design and implement comprehensive test suites for production systems.",
+      "triggers": [
+        "test",
+        "tests",
+        "testing",
+        "coverage",
+        "提高覆盖率",
+        "测试一下这个",
+        "unit test",
+        "test suite",
+        "test case"
+      ],
+      "tools": ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "LS"],
+      "languageFrameworks": {
+        "Python": "pytest",
+        "TypeScript": "Jest/Vitest",
+        "JavaScript": "Jest/Vitest",
+        "Go": "testing",
+        "Rust": "built-in",
+        "Java": "JUnit"
+      },
+      "testCategories": [
+        "Functional Tests",
+        "Edge Cases",
+        "Error Handling Tests",
+        "Property/Invariant Tests",
+        "Side Effect Validation"
+      ],
+      "qualityAttributes": [
+        "Deterministic",
+        "Isolated",
+        "Readable",
+        "Behavior-driven",
+        "Refactor-safe"
+      ],
+      "outputSections": [
+        "Test Strategy",
+        "Test Matrix",
+        "Fixtures & Mocks",
+        "Test Code",
+        "Coverage Notes"
+      ]
+    },
+    {
+      "id": "staff-code-reviewer",
+      "name": "Staff Code Reviewer",
+      "file": "staff-code-reviewer.md",
+      "model": "opus",
+      "category": "review",
+      "description": "Production-grade code review for correctness, security, performance, and maintainability.",
+      "triggers": [
+        "review",
+        "code review",
+        "审查代码",
+        "check my code",
+        "PR review",
+        "帮我看看这段代码",
+        "audit",
+        "pull request"
+      ],
+      "tools": ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "LS"],
+      "reviewDimensions": [
+        "Correctness & Logic",
+        "Security",
+        "Performance",
+        "Maintainability",
+        "Testability",
+        "Architectural Alignment"
+      ],
+      "riskSeverity": {
+        "Critical": "Must fix before merge",
+        "Major": "Should fix soon",
+        "Minor": "Improvement suggestion"
+      },
+      "qualityScores": [
+        "Correctness",
+        "Security",
+        "Performance",
+        "Maintainability",
+        "Testability",
+        "Architecture alignment"
+      ],
+      "outputSections": [
+        "Review Summary",
+        "Critical Issues",
+        "Major Improvements",
+        "Minor Suggestions",
+        "Quality Scores",
+        "Refactoring Opportunities",
+        "What Is Good"
+      ]
+    },
+    {
+      "id": "technical-documentation-engineer",
+      "name": "Technical Documentation Engineer",
+      "file": "technical-documentation-engineer.md",
+      "model": "opus",
+      "category": "documentation",
+      "description": "Production-grade documentation including README, API docs, code comments, and architecture docs.",
+      "triggers": [
+        "document",
+        "documentation",
+        "写文档",
+        "README",
+        "API 文档",
+        "comments",
+        "说明一下这个系统",
+        "guide",
+        "ADR"
+      ],
+      "tools": ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "LS"],
+      "documentationTypes": [
+        "Code-level (docstrings, JSDoc)",
+        "Project-level (README, guides)",
+        "API Documentation",
+        "Architecture Documentation",
+        "ADR (Architecture Decision Records)"
+      ],
+      "designPrinciples": [
+        "Explain WHY before HOW",
+        "Show real, copy-pasteable examples",
+        "Document constraints and assumptions",
+        "Document failure modes",
+        "Use stable section headers for AI-parsability",
+        "Provide explicit contracts"
+      ],
+      "outputSections": [
+        "Overview",
+        "Concepts & Responsibilities",
+        "Architecture / Design",
+        "API / Interface",
+        "Usage Examples",
+        "Constraints & Guarantees",
+        "Testing Notes",
+        "Extension Guide"
+      ]
+    },
+    {
+      "id": "semantic-commit-generator",
+      "name": "Semantic Commit Generator",
+      "file": "semantic-commit-generator.md",
+      "model": "opus",
+      "category": "git",
+      "description": "Generate production-grade, Conventional Commits-formatted commit messages.",
+      "triggers": [
+        "commit",
+        "commit message",
+        "写 commit",
+        "提交信息",
+        "帮我生成提交说明",
+        "git commit",
+        "generate commit",
+        "changelog"
+      ],
+      "tools": ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "LS"],
+      "commitTypes": {
+        "feat": "new capability",
+        "fix": "bug fix",
+        "refactor": "structure change without behavior change",
+        "perf": "performance improvement",
+        "test": "test-related",
+        "docs": "documentation only",
+        "style": "formatting / linting",
+        "build": "build system / dependencies",
+        "ci": "CI/CD changes",
+        "chore": "maintenance"
+      },
+      "breakingChangeDetection": [
+        "API contract change",
+        "schema change",
+        "config change",
+        "behavior change"
+      ],
+      "outputSections": [
+        "Commit Message",
+        "Type Rationale",
+        "Scope Rationale",
+        "Breaking Change",
+        "Changelog Entry"
+      ]
+    },
+    {
+      "id": "memory-identity-manager",
+      "name": "Memory Identity Manager",
+      "file": "memory-identity-manager.md",
+      "model": "inherit",
+      "category": "memory",
+      "description": "Manage memory context, identity policy, and cross-session state.",
+      "triggers": [
+        "memory",
+        "context",
+        "identity",
+        "cross-session",
+        "state"
+      ],
+      "tools": ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "LS"],
+      "identityFields": ["source_identity", "owner_identity", "metadata"],
+      "rules": [
+        "Identity authority from top-level source_identity and owner_identity",
+        "metadata not authoritative for identity decisions",
+        "Top-level fields win over metadata conflicts",
+        "path is the upsert key",
+        "Explicit identity filtering when needed"
+      ]
+    },
+    {
+      "id": "senior-ui-ux-designer",
+      "name": "Senior UI/UX Designer",
+      "file": "senior-ui-ux-designer.md",
+      "model": "opus",
+      "category": "design-ui",
+      "description": "UI/UX design, visual design systems, component styling, layout design, responsive design, animations, color palettes, typography, accessibility, and premium visual quality.",
+      "triggers": [
+        "design",
+        "UI",
+        "UX",
+        "界面设计",
+        "UI太丑了",
+        "太丑了",
+        "improve design",
+        "make it look better",
+        "design system",
+        "color palette",
+        "typography",
+        "dark mode",
+        "responsive",
+        "animation",
+        "设计一下界面",
+        "视觉效果",
+        "美化",
+        "好看一点",
+        "premium look"
+      ],
+      "tools": ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "LS"],
+      "designMethodology": [
+        "Product Context Analysis",
+        "Visual Audit",
+        "Design System Foundation",
+        "Component Design (all states)",
+        "Motion & Micro-interactions",
+        "Responsive Strategy",
+        "Dark Mode Design",
+        "Accessibility Compliance"
+      ],
+      "designTechniques": [
+        "Glassmorphism",
+        "Gradient accents",
+        "Depth layering",
+        "Frosted glass navigation",
+        "Glow effects",
+        "Smooth micro-animations",
+        "Color bleeding hero sections"
+      ],
+      "outputSections": [
+        "Design Context",
+        "Visual Audit",
+        "Design System (tokens)",
+        "Component Designs",
+        "Layout Structure",
+        "Motion Design",
+        "Dark Mode",
+        "Responsive Behavior",
+        "Accessibility"
+      ]
+    },
+    {
+      "id": "task-dispatcher",
+      "name": "Task Dispatcher (Control Layer)",
+      "file": "task-dispatcher.md",
+      "model": "cheap-multimodal",
+      "category": "dispatch",
+      "description": "控制层 AI：接收用户的文字/截图/视频，分析真实意图，生成高质量结构化任务注入永动引擎 INBOX。运行在便宜多模态模型上。",
+      "triggers": [
+        "dispatch",
+        "任务",
+        "添加任务",
+        "inject",
+        "INBOX",
+        "截图",
+        "录屏",
+        "这里不好看",
+        "有个问题",
+        "添加需求",
+        "新功能"
+      ],
+      "tools": ["Read", "Write", "Edit", "Bash", "Grep", "LS", "Vision"],
+      "recommendedModels": [
+        "GPT-4o-mini",
+        "Gemini 2.0 Flash",
+        "Claude 3.5 Haiku"
+      ],
+      "capabilities": [
+        "Screenshot analysis",
+        "Video/screencast analysis",
+        "Design reference analysis",
+        "Fuzzy requirement translation",
+        "Structured INBOX task generation",
+        "New Phase creation",
+        "Project state awareness"
+      ],
+      "inputTypes": ["text", "image", "video", "screenshot", "design_reference"],
+      "outputTargets": ["INBOX.md", "plan_XXX.json", "PROGRESS_STATUS.json", "TODOS.md"],
+      "outputSections": [
+        "Intent Analysis",
+        "Problem Identification",
+        "Structured Task Generation",
+        "Priority Assignment",
+        "Agent Routing"
+      ]
+    }
+  ],
+  "categories": {
+    "dispatch": ["task-dispatcher"],
+    "orchestration": ["agent-orchestrator"],
+    "design": ["principal-architect"],
+    "design-ui": ["senior-ui-ux-designer"],
+    "optimization": ["principal-performance-engineer"],
+    "improvement": ["principal-refactoring-engineer"],
+    "debugging": ["root-cause-debugging-engineer"],
+    "testing": ["software-test-engineer"],
+    "review": ["staff-code-reviewer"],
+    "documentation": ["technical-documentation-engineer"],
+    "git": ["semantic-commit-generator"],
+    "memory": ["memory-identity-manager"]
+  },
+  "sharedState": {
+    "directory": ".claude/shared",
+    "files": {
+      "dependencies": "Interface contracts between agents",
+      "issues": "Blockers and conflicts",
+      "progress": "Task completion status"
+    }
+  },
+  "worktreeConfig": {
+    "pattern": "worktree/agent-p{index}",
+    "branchPattern": "agent/p{index}",
+    "assignments": {
+      "p0": ["principal-architect", "root-cause-debugging-engineer"],
+      "p1": ["principal-performance-engineer"],
+      "p2": ["principal-refactoring-engineer"],
+      "p3": ["software-test-engineer", "staff-code-reviewer"]
+    }
+  }
+}

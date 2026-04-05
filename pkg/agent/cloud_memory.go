@@ -109,10 +109,10 @@ func (s *cloudMemoryStack) eventLoop(sub EventSubscription) {
 		}
 
 		mem := cloud.Memory{
-			ID:        fmt.Sprintf("summary-%s-%d", sessionKey, time.Now().UnixMilli()),
-			SessionID: sessionKey,
-			Content:   fmt.Sprintf("Session summarization: %d messages summarized, %d kept, summary length %d", payload.SummarizedMessages, payload.KeptMessages, payload.SummaryLen),
-			Kind:      "summary",
+			ID:         fmt.Sprintf("summary-%s-%d", sessionKey, time.Now().UnixMilli()),
+			SessionKey: sessionKey,
+			Content:    fmt.Sprintf("Session summarization: %d messages summarized, %d kept, summary length %d", payload.SummarizedMessages, payload.KeptMessages, payload.SummaryLen),
+			Kind:       "summary",
 		}
 		s.sync.Enqueue(mem)
 	}

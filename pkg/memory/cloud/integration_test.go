@@ -107,7 +107,7 @@ func TestIntegration_SupabaseStack(t *testing.T) {
 	for i := 0; i < 3; i++ {
 		syncMgr.Enqueue(cloud.Memory{
 			ID:        "test-" + string(rune('0'+i)),
-			SessionID: "session-1",
+			SessionKey: "session-1",
 			Content:   "content",
 			Kind:      "message",
 		})
