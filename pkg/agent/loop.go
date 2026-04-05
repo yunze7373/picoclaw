@@ -434,6 +434,15 @@ func registerSharedTools(
 			if spawnStatusEnabled {
 				agent.Tools.Register(tools.NewSpawnStatusTool(subagentManager))
 			}
+			if cfg.Tools.IsToolEnabled("team_create") {
+				teamTool := tools.NewTeamTool(
+					NewSubTurnSpawner(al),
+					agent.Model,
+					agent.MaxTokens,
+					agent.Temperature,
+				)
+				agent.Tools.Register(teamTool)
+			}
 		} else if (spawnEnabled || spawnStatusEnabled) && !cfg.Tools.IsToolEnabled("subagent") {
 			logger.WarnCF("agent", "spawn/spawn_status tools require subagent to be enabled", nil)
 		}

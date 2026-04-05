@@ -872,6 +872,7 @@ type ToolsConfig struct {
 	SpawnStatus     ToolConfig         `json:"spawn_status"      yaml:"-"                                                       envPrefix:"PICOCLAW_TOOLS_SPAWN_STATUS_"`
 	SPI             ToolConfig         `json:"spi"               yaml:"-"                                                       envPrefix:"PICOCLAW_TOOLS_SPI_"`
 	Subagent        ToolConfig         `json:"subagent"          yaml:"-"                                                       envPrefix:"PICOCLAW_TOOLS_SUBAGENT_"`
+	TeamCreate      ToolConfig         `json:"team_create"       yaml:"-"                                                       envPrefix:"PICOCLAW_TOOLS_TEAM_CREATE_"`
 	WebFetch        ToolConfig         `json:"web_fetch"         yaml:"-"                                                       envPrefix:"PICOCLAW_TOOLS_WEB_FETCH_"`
 	WriteFile       ToolConfig         `json:"write_file"        yaml:"-"                                                       envPrefix:"PICOCLAW_TOOLS_WRITE_FILE_"`
 }
@@ -1351,6 +1352,8 @@ func (t *ToolsConfig) IsToolEnabled(name string) bool {
 		return t.SPI.Enabled
 	case "subagent":
 		return t.Subagent.Enabled
+	case "team_create":
+		return t.TeamCreate.Enabled
 	case "web_fetch":
 		return t.WebFetch.Enabled
 	case "send_file":
