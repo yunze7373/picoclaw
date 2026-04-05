@@ -47,28 +47,49 @@ type Config struct {
 	// CacheSize sets the max entries in the in-memory LRU embedding cache.
 	// Default: 10000. Set 0 to disable.
 	CacheSize int `json:"cache_size" yaml:"cache_size"`
+
+	// TextType controls asymmetric embedding roles for providers that support it
+	// (currently: Aliyun DashScope). Supported values: "document" (default, for
+	// stored corpus texts) or "query" (for search queries). Leave empty for
+	// providers that do not support this parameter.
+	TextType string `json:"text_type,omitempty" yaml:"text_type"`
 }
 
 // New creates a Provider from the given config.
 // Returns NoopProvider if backend is "" or "none".
-// Returns an error only if the backend name is unknown.
+// When cfg.CacheSize > 0, the provider is automatically wrapped with an LRU cache.
+// Returns an error only if the backend name is unknown or required fields are missing.
 func New(cfg Config) (Provider, error) {
+	var p Provider
+	var err error
+
 	switch cfg.Backend {
 	case "", "none":
-		return &NoopProvider{}, nil
+		p = &NoopProvider{}
 	case "openai":
-		return NewOpenAIProvider(cfg)
+		p, err = NewOpenAIProvider(cfg)
 	case "ollama":
-		return NewOllamaProvider(cfg)
+		p, err = NewOllamaProvider(cfg)
 	case "google":
-		return NewGoogleProvider(cfg)
+		p, err = NewGoogleProvider(cfg)
 	case "aliyun":
-		return NewAliyunProvider(cfg)
+		p, err = NewAliyunProvider(cfg)
 	case "deepseek":
-		return NewDeepSeekProvider(cfg)
+		p, err = NewDeepSeekProvider(cfg)
 	default:
 		return nil, &UnknownBackendError{Backend: cfg.Backend}
 	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Apply LRU cache if requested (default: disabled for noop, caller-controlled otherwise).
+	if cfg.CacheSize > 0 && cfg.Backend != "" && cfg.Backend != "none" {
+		p = NewCachedProvider(p, cfg.CacheSize)
+	}
+
+	return p, nil
 }
 
 // UnknownBackendError is returned by New when an unrecognized backend name is given.

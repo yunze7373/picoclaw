@@ -1,0 +1,100 @@
+{
+  "plan_id": "plan_005_phase5",
+  "phase": 5,
+  "theme": "可观测性 + Vertex AI + 日志集成 + 配置完善",
+  "created_at": "2026-04-06",
+  "inbox_source": "INBOX.md (empty) + AUDIT_REPORT_004.md recommendations",
+  "weeks": {
+    "week01": {
+      "goal": "日志集成 + EmbeddingConfig 完善",
+      "tasks": [
+        {
+          "id": "task_037",
+          "title": "embedding 错误日志集成",
+          "priority": "P0",
+          "files": ["pkg/memory/cloud/supabase.go", "pkg/memory/embedding/interface.go"],
+          "description": "为 supabase.go 中的 embedErr 路径接入 logger。定义一个 EmbeddingErrorHook func(err error) 字段在 SupabaseConfig 中，允许调用方注入日志回调。同时在 cloud_memory.go 中传入 logger.WarnCF 作为 hook。"
+        },
+        {
+          "id": "task_038",
+          "title": "config.go 添加 EmbeddingConfig.TextType 字段",
+          "priority": "P0",
+          "files": ["pkg/config/config.go"],
+          "description": "在 EmbeddingConfig struct 中添加 TextType string 字段，env: PICOCLAW_EMBEDDING_TEXT_TYPE。更新 cloud_memory.go 中的 embedding.Config 构造传入 TextType。"
+        }
+      ]
+    },
+    "week02": {
+      "goal": "Prometheus 可观测性 + Vertex AI 支持",
+      "tasks": [
+        {
+          "id": "task_039",
+          "title": "Embedding 可观测性 metrics",
+          "priority": "P1",
+          "depends_on": ["task_037"],
+          "files": ["pkg/memory/embedding/metrics.go", "pkg/memory/embedding/cache.go"],
+          "description": "为 CachedProvider 添加 cache hit/miss 计数器和 embedding 延迟直方图。使用 expvar 或 Prometheus client_golang（可选依赖，使用 build tag）。暴露 CacheStats() 方法返回 {Hits, Misses, Evictions int64}。"
+        },
+        {
+          "id": "task_040",
+          "title": "Google Vertex AI 模式（Bearer token）",
+          "priority": "P1",
+          "depends_on": [],
+          "files": ["pkg/memory/embedding/google.go"],
+          "description": "Google AI Studio 使用 ?key=API_KEY，Vertex AI 使用 Authorization: Bearer token。检测 BaseURL 是否为 Vertex AI endpoint（aiplatform.googleapis.com），如果是则用 Bearer token。文档更新：建议生产环境使用 Vertex AI 避免 key 泄露在日志中。"
+        },
+        {
+          "id": "task_041",
+          "title": "UpsertBatch 集成测试（验证无 caller mutation）",
+          "priority": "P1",
+          "depends_on": ["task_037"],
+          "files": ["pkg/memory/cloud/integration_test.go"],
+          "description": "新增测试：创建 httptest 服务器，调用 UpsertBatch，验证传入的 []Memory 切片在调用后 Embedding 字段未被修改（即 P0-2 fix 验证）。同时测试 vectorSearch 路径。"
+        }
+      ]
+    },
+    "week03": {
+      "goal": "文档完善 + Phase R",
+      "tasks": [
+        {
+          "id": "task_042",
+          "title": "更新 docs/embedding-providers.md 补充 TextType 和 Vertex AI",
+          "priority": "P2",
+          "depends_on": ["task_038", "task_040"],
+          "files": ["docs/embedding-providers.md"],
+          "description": "新增 TextType 配置项说明（Aliyun 专用）。新增 Google Vertex AI 配置示例。补充环境变量 PICOCLAW_EMBEDDING_TEXT_TYPE。"
+        },
+        {
+          "id": "task_043_inbox_check",
+          "title": "📬 INBOX 检查点",
+          "type": "meta",
+          "priority": "critical",
+          "description": "读取 .progress/INBOX.md，处理新指令，纳入当前执行计划。"
+        },
+        {
+          "id": "task_044_phase_r",
+          "title": "🔥 Phase R 审查 + 生成 Phase 6 计划",
+          "type": "meta",
+          "priority": "critical",
+          "auto_trigger": true,
+          "description": "所有任务完成后自动执行：1) 读取 INBOX.md 2) 生成 AUDIT_REPORT_005.md 3) 创建 plan_006.json 4) 立即执行新计划第一个任务，不要询问"
+        }
+      ]
+    }
+  },
+  "summary": {
+    "total_tasks": 8,
+    "p0_tasks": 2,
+    "p1_tasks": 3,
+    "p2_tasks": 1,
+    "meta_tasks": 2,
+    "key_deliverables": [
+      "Embedding 错误日志 hook (supabase.go)",
+      "EmbeddingConfig.TextType in config.go + env var",
+      "CachedProvider 可观测性 metrics",
+      "Google Vertex AI Bearer token mode",
+      "UpsertBatch no-mutation integration test",
+      "docs/embedding-providers.md 完善"
+    ]
+  }
+}

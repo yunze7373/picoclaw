@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sync/atomic"
 	"time"
 )
 
@@ -24,7 +25,7 @@ type OpenAIProvider struct {
 	apiKey  string
 	baseURL string
 	model   string
-	dims    int
+	dims    atomic.Int32
 	client  *http.Client
 }
 
@@ -55,7 +56,7 @@ func NewOpenAIProvider(cfg Config) (*OpenAIProvider, error) {
 func (p *OpenAIProvider) Model() string { return p.model }
 
 // Dims returns the cached embedding dimension (0 until first call).
-func (p *OpenAIProvider) Dims() int { return p.dims }
+func (p *OpenAIProvider) Dims() int { return int(p.dims.Load()) }
 
 // Embed calls the OpenAI Embeddings API and returns one vector per input.
 func (p *OpenAIProvider) Embed(ctx context.Context, texts []string) ([][]float32, error) {
@@ -106,8 +107,8 @@ func (p *OpenAIProvider) Embed(ctx context.Context, texts []string) ([][]float32
 	}
 
 	// Cache dims from first successful response
-	if p.dims == 0 && len(vectors) > 0 && len(vectors[0]) > 0 {
-		p.dims = len(vectors[0])
+	if p.dims.Load() == 0 && len(vectors) > 0 && len(vectors[0]) > 0 {
+		p.dims.Store(int32(len(vectors[0])))
 	}
 
 	return vectors, nil

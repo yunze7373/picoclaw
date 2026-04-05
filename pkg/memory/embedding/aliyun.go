@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sync/atomic"
 	"time"
 )
 
@@ -20,15 +21,19 @@ var _ Provider = (*AliyunProvider)(nil)
 
 // AliyunProvider implements Provider using Aliyun DashScope text-embedding models.
 type AliyunProvider struct {
-	apiKey  string
-	baseURL string
-	model   string
-	dims    int
-	client  *http.Client
+	apiKey   string
+	baseURL  string
+	model    string
+	textType string // "query" or "document"
+	dims     atomic.Int32
+	client   *http.Client
 }
 
 // NewAliyunProvider creates an Aliyun DashScope embedding provider.
 // Required: cfg.APIKey. Optional: cfg.Model (default: text-embedding-v3).
+// cfg.TextType controls asymmetric embedding mode: "document" (default, for storage)
+// or "query" (for search queries). Use the same mode for both storage and search,
+// or set "document" for storage and "query" for search to leverage asymmetric training.
 func NewAliyunProvider(cfg Config) (*AliyunProvider, error) {
 	if cfg.APIKey == "" {
 		return nil, errors.New("embedding/aliyun: api_key is required")
@@ -41,11 +46,16 @@ func NewAliyunProvider(cfg Config) (*AliyunProvider, error) {
 	if model == "" {
 		model = defaultAliyunModel
 	}
+	tt := cfg.TextType
+	if tt == "" {
+		tt = "document" // default: corpus storage mode
+	}
 	return &AliyunProvider{
-		apiKey:  cfg.APIKey,
-		baseURL: base,
-		model:   model,
-		client:  &http.Client{Timeout: 30 * time.Second},
+		apiKey:   cfg.APIKey,
+		baseURL:  base,
+		model:    model,
+		textType: tt,
+		client:   &http.Client{Timeout: 30 * time.Second},
 	}, nil
 }
 
@@ -53,7 +63,7 @@ func NewAliyunProvider(cfg Config) (*AliyunProvider, error) {
 func (p *AliyunProvider) Model() string { return p.model }
 
 // Dims returns the cached embedding dimension (0 until first call).
-func (p *AliyunProvider) Dims() int { return p.dims }
+func (p *AliyunProvider) Dims() int { return int(p.dims.Load()) }
 
 // Embed calls DashScope's text-embedding API and returns one vector per input.
 // DashScope limits batch size to 25 texts; we chunk automatically.
@@ -79,8 +89,8 @@ func (p *AliyunProvider) Embed(ctx context.Context, texts []string) ([][]float32
 		copy(all[start:], vectors)
 	}
 
-	if p.dims == 0 && len(all) > 0 && len(all[0]) > 0 {
-		p.dims = len(all[0])
+	if p.dims.Load() == 0 && len(all) > 0 && len(all[0]) > 0 {
+		p.dims.Store(int32(len(all[0])))
 	}
 
 	return all, nil
@@ -91,7 +101,7 @@ func (p *AliyunProvider) embedBatch(ctx context.Context, texts []string) ([][]fl
 		Model: p.model,
 		Input: aliyunEmbedInput{Texts: texts},
 		Parameters: aliyunEmbedParams{
-			TextType: "query",
+			TextType: p.textType,
 		},
 	}
 	body, err := json.Marshal(reqBody)

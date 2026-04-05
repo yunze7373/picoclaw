@@ -12,13 +12,10 @@ var _ Provider = (*NoopProvider)(nil)
 // Supabase store detects nil/empty vectors and falls back to text search.
 type NoopProvider struct{}
 
-// Embed returns an empty vector for each input text.
+// Embed returns a nil vector for each input text (no network call, no allocation).
 func (p *NoopProvider) Embed(_ context.Context, texts []string) ([][]float32, error) {
-	result := make([][]float32, len(texts))
-	for i := range result {
-		result[i] = nil
-	}
-	return result, nil
+	// make([][]float32, n) already initialises each element to nil.
+	return make([][]float32, len(texts)), nil
 }
 
 // Model returns the noop provider identifier.

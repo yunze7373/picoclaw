@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"sync/atomic"
 	"time"
 )
 
@@ -22,7 +23,7 @@ var _ Provider = (*OllamaProvider)(nil)
 type OllamaProvider struct {
 	baseURL string
 	model   string
-	dims    int
+	dims    atomic.Int32
 	client  *http.Client
 }
 
@@ -49,7 +50,7 @@ func NewOllamaProvider(cfg Config) (*OllamaProvider, error) {
 func (p *OllamaProvider) Model() string { return p.model }
 
 // Dims returns the cached embedding dimension (0 until first call).
-func (p *OllamaProvider) Dims() int { return p.dims }
+func (p *OllamaProvider) Dims() int { return int(p.dims.Load()) }
 
 // Embed calls Ollama's /api/embed endpoint and returns one vector per input.
 // Ollama processes one text at a time; we call sequentially to keep it simple.
@@ -96,8 +97,8 @@ func (p *OllamaProvider) Embed(ctx context.Context, texts []string) ([][]float32
 	}
 
 	// Cache dims
-	if p.dims == 0 && len(result.Embeddings) > 0 {
-		p.dims = len(result.Embeddings[0])
+	if p.dims.Load() == 0 && len(result.Embeddings) > 0 {
+		p.dims.Store(int32(len(result.Embeddings[0])))
 	}
 
 	return result.Embeddings, nil

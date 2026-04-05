@@ -40,7 +40,7 @@ func initCloudMemory(cfg config.CloudMemoryConfig, bus *EventBus) (*cloudMemoryS
 			tableName = "memories"
 		}
 
-		// Build optional embedding provider
+		// Build optional embedding provider (New() applies LRU cache automatically)
 		var embedder embedding.Provider
 		if ecfg := cfg.Embedding; ecfg.Backend != "" && ecfg.Backend != "none" {
 			p, err := embedding.New(embedding.Config{
@@ -56,13 +56,7 @@ func initCloudMemory(cfg config.CloudMemoryConfig, bus *EventBus) (*cloudMemoryS
 					"error":   err.Error(),
 				})
 			} else {
-				// Wrap with LRU cache
-				cacheSize := ecfg.CacheSize
-				if cacheSize > 0 {
-					embedder = embedding.NewCachedProvider(p, cacheSize)
-				} else {
-					embedder = p
-				}
+				embedder = p
 				logger.InfoCF("cloud_memory", "embedding provider ready", map[string]any{
 					"backend": ecfg.Backend,
 					"model":   p.Model(),

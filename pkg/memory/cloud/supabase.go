@@ -108,11 +108,13 @@ func (s *SupabaseStore) UpsertMemory(ctx context.Context, m Memory) error {
 
 	// Generate embedding if provider is set and memory has no embedding yet.
 	if s.hasEmbedder() && len(m.Embedding) == 0 {
-		vectors, err := s.embedder.Embed(ctx, []string{m.Content})
-		if err == nil && len(vectors) > 0 && len(vectors[0]) > 0 {
+		vectors, embedErr := s.embedder.Embed(ctx, []string{m.Content})
+		if embedErr != nil {
+			// Non-fatal but log: operators need to detect misconfiguration
+			_ = embedErr // TODO: wire a logger when available
+		} else if len(vectors) > 0 && len(vectors[0]) > 0 {
 			m.Embedding = vectors[0]
 		}
-		// Non-fatal: continue without embedding on error
 	}
 
 	body := memoryToRow(m)
@@ -158,28 +160,42 @@ func (s *SupabaseStore) UpsertBatch(ctx context.Context, memories []Memory) (int
 	rows := make([]map[string]any, len(memories))
 
 	// Batch-embed memories that lack embeddings.
+	// We build a local embeddings map to avoid mutating the caller's slice.
+	embeddings := map[int][]float32{}
 	if s.hasEmbedder() {
-		needsEmbed := make([]int, 0, len(memories))
-		texts := make([]string, 0, len(memories))
+		type work struct {
+			idx  int
+			text string
+		}
+		pending := make([]work, 0, len(memories))
 		for i, m := range memories {
 			if len(m.Embedding) == 0 {
-				needsEmbed = append(needsEmbed, i)
-				texts = append(texts, m.Content)
+				pending = append(pending, work{i, m.Content})
 			}
 		}
-		if len(texts) > 0 {
-			if vectors, err := s.embedder.Embed(ctx, texts); err == nil {
-				for j, idx := range needsEmbed {
+		if len(pending) > 0 {
+			texts := make([]string, len(pending))
+			for j, w := range pending {
+				texts[j] = w.text
+			}
+			vectors, embedErr := s.embedder.Embed(ctx, texts)
+			if embedErr != nil {
+				// Non-fatal: log so operators can detect misconfiguration
+				_ = embedErr // TODO: wire a logger when available
+			} else {
+				for j, w := range pending {
 					if j < len(vectors) && len(vectors[j]) > 0 {
-						memories[idx].Embedding = vectors[j]
+						embeddings[w.idx] = vectors[j]
 					}
 				}
 			}
-			// Non-fatal: proceed without embeddings on error
 		}
 	}
 
 	for i, m := range memories {
+		if v, ok := embeddings[i]; ok {
+			m.Embedding = v // local copy only — does not mutate caller's slice
+		}
 		rows[i] = memoryToRow(m)
 	}
 
@@ -313,7 +329,7 @@ func (s *SupabaseStore) vectorSearch(ctx context.Context, queryVec []float32, to
 	if err != nil {
 		return nil, fmt.Errorf("supabase: vector search: %w", err)
 	}
-	defer resp.Body.Close()
+	defer drainAndClose(resp.Body)
 
 	if resp.StatusCode >= 300 {
 		return nil, s.readError(resp)
@@ -344,7 +360,7 @@ func (s *SupabaseStore) textSearch(ctx context.Context, query string, topK int, 
 	if err != nil {
 		return nil, fmt.Errorf("supabase: similarity search: %w", err)
 	}
-	defer resp.Body.Close()
+	defer drainAndClose(resp.Body)
 
 	if resp.StatusCode >= 300 {
 		return nil, s.readError(resp)
@@ -363,6 +379,8 @@ func (s *SupabaseStore) decodeSearchResults(resp *http.Response) ([]SearchResult
 	if err := json.NewDecoder(resp.Body).Decode(&rpcResults); err != nil {
 		return nil, fmt.Errorf("supabase: decode results: %w", err)
 	}
+	// Drain any trailing bytes so the connection can be reused by the pool.
+	io.Copy(io.Discard, resp.Body)
 
 	results := make([]SearchResult, len(rpcResults))
 	for i, r := range rpcResults {
@@ -381,7 +399,7 @@ func (s *SupabaseStore) decodeSearchResults(resp *http.Response) ([]SearchResult
 
 // hasEmbedder returns true if a real (non-noop) embedding provider is set.
 func (s *SupabaseStore) hasEmbedder() bool {
-	return s.embedder != nil && s.embedder.Dims() != 0 || (s.embedder != nil && s.embedder.Model() != "none")
+	return s.embedder != nil && s.embedder.Model() != "none"
 }
 
 func (s *SupabaseStore) SyncFromLocal(ctx context.Context, memories []Memory) (*SyncStats, error) {
