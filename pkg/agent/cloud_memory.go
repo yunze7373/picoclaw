@@ -49,6 +49,7 @@ func initCloudMemory(cfg config.CloudMemoryConfig, bus *EventBus) (*cloudMemoryS
 				APIKey:    ecfg.APIKey,
 				BaseURL:   ecfg.BaseURL,
 				CacheSize: ecfg.CacheSize,
+				TextType:  ecfg.TextType,
 			})
 			if err != nil {
 				logger.WarnCF("cloud_memory", "embedding provider init failed, falling back to text search", map[string]any{
@@ -70,6 +71,11 @@ func initCloudMemory(cfg config.CloudMemoryConfig, bus *EventBus) (*cloudMemoryS
 			APIKey:    cfg.APIKey,
 			TableName: tableName,
 			Embedder:  embedder,
+			OnEmbedError: func(e error) {
+				logger.WarnCF("cloud_memory", "embedding failed, storing without vector", map[string]any{
+					"error": e.Error(),
+				})
+			},
 		})
 		if err != nil {
 			return nil, fmt.Errorf("cloud memory: create supabase store: %w", err)

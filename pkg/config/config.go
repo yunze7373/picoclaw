@@ -720,6 +720,11 @@ type EmbeddingConfig struct {
 
 	// CacheSize sets the LRU cache size. Default: 10000. Set 0 to disable.
 	CacheSize int `json:"cache_size,omitempty" yaml:"-" env:"PICOCLAW_EMBEDDING_CACHE_SIZE"`
+
+	// TextType controls asymmetric embedding roles for providers that support it
+	// (currently: Aliyun DashScope). "document" (default) for stored corpus,
+	// "query" for search queries.
+	TextType string `json:"text_type,omitempty" yaml:"-" env:"PICOCLAW_EMBEDDING_TEXT_TYPE"`
 }
 
 type BraveConfig struct {

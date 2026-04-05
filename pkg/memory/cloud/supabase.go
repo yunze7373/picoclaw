@@ -33,13 +33,14 @@ import (
 //	);
 //	CREATE INDEX ON memories USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
 type SupabaseStore struct {
-	baseURL   string // e.g. "https://xxx.supabase.co"
-	apiKey    string
-	tableName string
-	client    *http.Client
-	embedder  embedding.Provider // nil or NoopProvider → text fallback
-	mu        sync.RWMutex
-	closed    bool
+	baseURL      string // e.g. "https://xxx.supabase.co"
+	apiKey       string
+	tableName    string
+	client       *http.Client
+	embedder     embedding.Provider // nil or NoopProvider → text fallback
+	onEmbedError func(err error)
+	mu           sync.RWMutex
+	closed       bool
 }
 
 // SupabaseConfig holds configuration for the Supabase cloud memory backend.
@@ -60,6 +61,11 @@ type SupabaseConfig struct {
 	// for semantic similarity search. If nil or NoopProvider, the store uses
 	// text-based search (match_memories RPC) as fallback.
 	Embedder embedding.Provider
+
+	// OnEmbedError is called when an embedding call fails during UpsertMemory or
+	// UpsertBatch. The operation continues without the embedding (graceful fallback).
+	// If nil, errors are silently discarded.
+	OnEmbedError func(err error)
 }
 
 var _ CloudMemoryStore = (*SupabaseStore)(nil)
@@ -90,11 +96,12 @@ func NewSupabaseStore(cfg SupabaseConfig) (*SupabaseStore, error) {
 	}
 
 	return &SupabaseStore{
-		baseURL:   strings.TrimRight(cfg.BaseURL, "/"),
-		apiKey:    cfg.APIKey,
-		tableName: tableName,
-		client:    &http.Client{Timeout: timeout},
-		embedder:  cfg.Embedder,
+		baseURL:      strings.TrimRight(cfg.BaseURL, "/"),
+		apiKey:       cfg.APIKey,
+		tableName:    tableName,
+		client:       &http.Client{Timeout: timeout},
+		embedder:     cfg.Embedder,
+		onEmbedError: cfg.OnEmbedError,
 	}, nil
 }
 
@@ -110,8 +117,9 @@ func (s *SupabaseStore) UpsertMemory(ctx context.Context, m Memory) error {
 	if s.hasEmbedder() && len(m.Embedding) == 0 {
 		vectors, embedErr := s.embedder.Embed(ctx, []string{m.Content})
 		if embedErr != nil {
-			// Non-fatal but log: operators need to detect misconfiguration
-			_ = embedErr // TODO: wire a logger when available
+			if s.onEmbedError != nil {
+				s.onEmbedError(embedErr)
+			}
 		} else if len(vectors) > 0 && len(vectors[0]) > 0 {
 			m.Embedding = vectors[0]
 		}
@@ -180,8 +188,9 @@ func (s *SupabaseStore) UpsertBatch(ctx context.Context, memories []Memory) (int
 			}
 			vectors, embedErr := s.embedder.Embed(ctx, texts)
 			if embedErr != nil {
-				// Non-fatal: log so operators can detect misconfiguration
-				_ = embedErr // TODO: wire a logger when available
+				if s.onEmbedError != nil {
+					s.onEmbedError(embedErr)
+				}
 			} else {
 				for j, w := range pending {
 					if j < len(vectors) && len(vectors[j]) > 0 {
