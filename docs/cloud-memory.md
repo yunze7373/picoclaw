@@ -225,11 +225,42 @@ Example output:
 
 ## Sync Behavior
 
+- **Event-driven**: Subscribes to `session_summarize` events from the EventBus
 - **Timer-based**: Auto-flushes every `sync_interval_seconds`
 - **Batch-based**: Flushes when batch reaches 100 memories
 - **Shutdown flush**: Pending memories are synced before shutdown (10s deadline)
 - **Non-blocking**: Queue overflow silently drops memories (agent loop never blocks)
 - **Idempotent**: Upsert semantics — safe to sync the same memory multiple times
+
+---
+
+## Periodic Backup
+
+The `BackupManager` provides scheduled full exports from Seahorse to cloud:
+
+- **Default interval**: 6 hours (configurable)
+- **Incremental**: Only exports memories created/updated since last backup
+- **On-demand**: Call `RunNow()` for immediate backup
+- **Independent**: Runs alongside SyncManager for belt-and-suspenders reliability
+
+---
+
+## Engine API
+
+The Seahorse engine exposes programmatic APIs for memory statistics and health:
+
+```go
+// Get aggregate stats for all sessions
+stats, err := engine.GetStats(ctx, true) // true = include per-session breakdown
+
+// Get stats for a specific session
+sessionStats, err := engine.GetSessionStats(ctx, "session-key")
+
+// Run health diagnostics
+health, err := engine.GetHealth(ctx)
+```
+
+These APIs power the `memory_stats` and `memory_health` tools.
 
 ---
 
