@@ -12,6 +12,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/sipeed/picoclaw/pkg/memory/embedding"
 )
 
 // SupabaseStore implements CloudMemoryStore using Supabase REST API with pgvector.
@@ -31,12 +33,13 @@ import (
 //	);
 //	CREATE INDEX ON memories USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
 type SupabaseStore struct {
-	baseURL    string // e.g. "https://xxx.supabase.co"
-	apiKey     string
-	tableName  string
-	client     *http.Client
-	mu         sync.RWMutex
-	closed     bool
+	baseURL   string // e.g. "https://xxx.supabase.co"
+	apiKey    string
+	tableName string
+	client    *http.Client
+	embedder  embedding.Provider // nil or NoopProvider → text fallback
+	mu        sync.RWMutex
+	closed    bool
 }
 
 // SupabaseConfig holds configuration for the Supabase cloud memory backend.
@@ -52,6 +55,11 @@ type SupabaseConfig struct {
 
 	// Timeout for HTTP requests. Default: 30s.
 	Timeout time.Duration `json:"timeout,omitempty"`
+
+	// Embedder is an optional embedding provider used to generate dense vectors
+	// for semantic similarity search. If nil or NoopProvider, the store uses
+	// text-based search (match_memories RPC) as fallback.
+	Embedder embedding.Provider
 }
 
 var _ CloudMemoryStore = (*SupabaseStore)(nil)
@@ -86,6 +94,7 @@ func NewSupabaseStore(cfg SupabaseConfig) (*SupabaseStore, error) {
 		apiKey:    cfg.APIKey,
 		tableName: tableName,
 		client:    &http.Client{Timeout: timeout},
+		embedder:  cfg.Embedder,
 	}, nil
 }
 
@@ -96,6 +105,15 @@ func (s *SupabaseStore) UpsertMemory(ctx context.Context, m Memory) error {
 		return fmt.Errorf("supabase: store is closed")
 	}
 	s.mu.RUnlock()
+
+	// Generate embedding if provider is set and memory has no embedding yet.
+	if s.hasEmbedder() && len(m.Embedding) == 0 {
+		vectors, err := s.embedder.Embed(ctx, []string{m.Content})
+		if err == nil && len(vectors) > 0 && len(vectors[0]) > 0 {
+			m.Embedding = vectors[0]
+		}
+		// Non-fatal: continue without embedding on error
+	}
 
 	body := memoryToRow(m)
 	data, err := json.Marshal(body)
@@ -138,6 +156,29 @@ func (s *SupabaseStore) UpsertBatch(ctx context.Context, memories []Memory) (int
 	s.mu.RUnlock()
 
 	rows := make([]map[string]any, len(memories))
+
+	// Batch-embed memories that lack embeddings.
+	if s.hasEmbedder() {
+		needsEmbed := make([]int, 0, len(memories))
+		texts := make([]string, 0, len(memories))
+		for i, m := range memories {
+			if len(m.Embedding) == 0 {
+				needsEmbed = append(needsEmbed, i)
+				texts = append(texts, m.Content)
+			}
+		}
+		if len(texts) > 0 {
+			if vectors, err := s.embedder.Embed(ctx, texts); err == nil {
+				for j, idx := range needsEmbed {
+					if j < len(vectors) && len(vectors[j]) > 0 {
+						memories[idx].Embedding = vectors[j]
+					}
+				}
+			}
+			// Non-fatal: proceed without embeddings on error
+		}
+	}
+
 	for i, m := range memories {
 		rows[i] = memoryToRow(m)
 	}
@@ -210,11 +251,15 @@ func (s *SupabaseStore) DeleteMemory(ctx context.Context, id string) error {
 
 // SimilaritySearch uses Supabase's RPC endpoint to call a pgvector similarity function.
 //
-// Expected Supabase function:
+// When an embedding provider is configured, it uses the vector-based RPC:
+//
+//	CREATE OR REPLACE FUNCTION match_memories_vector(query_embedding vector, match_count INT, min_similarity FLOAT)
+//	RETURNS TABLE (id TEXT, content TEXT, session_key TEXT, kind TEXT, similarity FLOAT)
+//
+// Without an embedding provider, it falls back to the text-based RPC:
 //
 //	CREATE OR REPLACE FUNCTION match_memories(query_text TEXT, match_count INT, min_similarity FLOAT)
 //	RETURNS TABLE (id TEXT, content TEXT, session_key TEXT, kind TEXT, similarity FLOAT)
-//	AS $$ ... $$ LANGUAGE plpgsql;
 func (s *SupabaseStore) SimilaritySearch(ctx context.Context, query string, topK int, minScore float64) ([]SearchResult, error) {
 	if topK <= 0 {
 		return nil, fmt.Errorf("supabase: topK must be positive, got %d", topK)
@@ -233,6 +278,50 @@ func (s *SupabaseStore) SimilaritySearch(ctx context.Context, query string, topK
 	}
 	s.mu.RUnlock()
 
+	// Use vector search if embedder is configured.
+	if s.hasEmbedder() {
+		vectors, err := s.embedder.Embed(ctx, []string{query})
+		if err == nil && len(vectors) > 0 && len(vectors[0]) > 0 {
+			return s.vectorSearch(ctx, vectors[0], topK, minScore)
+		}
+		// Fall through to text search on embedding failure
+	}
+
+	return s.textSearch(ctx, query, topK, minScore)
+}
+
+func (s *SupabaseStore) vectorSearch(ctx context.Context, queryVec []float32, topK int, minScore float64) ([]SearchResult, error) {
+	payload := map[string]any{
+		"query_embedding": queryVec,
+		"match_count":     topK,
+		"min_similarity":  minScore,
+	}
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("supabase: marshal vector query: %w", err)
+	}
+
+	url := fmt.Sprintf("%s/rest/v1/rpc/match_memories_vector", s.baseURL)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(data))
+	if err != nil {
+		return nil, fmt.Errorf("supabase: create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	s.setAuthHeaders(req)
+
+	resp, err := s.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("supabase: vector search: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 300 {
+		return nil, s.readError(resp)
+	}
+	return s.decodeSearchResults(resp)
+}
+
+func (s *SupabaseStore) textSearch(ctx context.Context, query string, topK int, minScore float64) ([]SearchResult, error) {
 	payload := map[string]any{
 		"query_text":     query,
 		"match_count":    topK,
@@ -248,7 +337,6 @@ func (s *SupabaseStore) SimilaritySearch(ctx context.Context, query string, topK
 	if err != nil {
 		return nil, fmt.Errorf("supabase: create request: %w", err)
 	}
-
 	req.Header.Set("Content-Type", "application/json")
 	s.setAuthHeaders(req)
 
@@ -261,7 +349,10 @@ func (s *SupabaseStore) SimilaritySearch(ctx context.Context, query string, topK
 	if resp.StatusCode >= 300 {
 		return nil, s.readError(resp)
 	}
+	return s.decodeSearchResults(resp)
+}
 
+func (s *SupabaseStore) decodeSearchResults(resp *http.Response) ([]SearchResult, error) {
 	var rpcResults []struct {
 		ID         string  `json:"id"`
 		Content    string  `json:"content"`
@@ -286,6 +377,11 @@ func (s *SupabaseStore) SimilaritySearch(ctx context.Context, query string, topK
 		}
 	}
 	return results, nil
+}
+
+// hasEmbedder returns true if a real (non-noop) embedding provider is set.
+func (s *SupabaseStore) hasEmbedder() bool {
+	return s.embedder != nil && s.embedder.Dims() != 0 || (s.embedder != nil && s.embedder.Model() != "none")
 }
 
 func (s *SupabaseStore) SyncFromLocal(ctx context.Context, memories []Memory) (*SyncStats, error) {

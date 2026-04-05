@@ -695,6 +695,31 @@ type CloudMemoryConfig struct {
 	// MaxMemories limits the number of memories stored in cloud per session.
 	// Default: 10000. Set to 0 for unlimited.
 	MaxMemories int `json:"max_memories,omitempty" yaml:"-" env:"PICOCLAW_CLOUD_MEMORY_MAX_MEMORIES"`
+
+	// Embedding configures the optional vector embedding provider used for
+	// semantic similarity search. When not set or backend is "none", the system
+	// falls back to text-based search.
+	Embedding EmbeddingConfig `json:"embedding,omitempty" yaml:"-"`
+}
+
+// EmbeddingConfig configures the vector embedding provider for semantic memory search.
+// All fields are optional — the zero value disables embeddings with zero overhead.
+type EmbeddingConfig struct {
+	// Backend selects the embedding provider.
+	// Options: "none" (default), "openai", "ollama", "google", "aliyun", "deepseek".
+	Backend string `json:"backend,omitempty" yaml:"-" env:"PICOCLAW_EMBEDDING_BACKEND"`
+
+	// Model overrides the provider's default embedding model.
+	Model string `json:"model,omitempty" yaml:"-" env:"PICOCLAW_EMBEDDING_MODEL"`
+
+	// APIKey for cloud providers (OpenAI, Google, Aliyun, DeepSeek).
+	APIKey string `json:"api_key,omitempty" yaml:"-" env:"PICOCLAW_EMBEDDING_API_KEY"`
+
+	// BaseURL overrides the provider endpoint (Azure, Ollama, custom).
+	BaseURL string `json:"base_url,omitempty" yaml:"-" env:"PICOCLAW_EMBEDDING_BASE_URL"`
+
+	// CacheSize sets the LRU cache size. Default: 10000. Set 0 to disable.
+	CacheSize int `json:"cache_size,omitempty" yaml:"-" env:"PICOCLAW_EMBEDDING_CACHE_SIZE"`
 }
 
 type BraveConfig struct {

@@ -8,6 +8,7 @@ import (
 	"github.com/sipeed/picoclaw/pkg/config"
 	"github.com/sipeed/picoclaw/pkg/logger"
 	cloud "github.com/sipeed/picoclaw/pkg/memory/cloud"
+	"github.com/sipeed/picoclaw/pkg/memory/embedding"
 )
 
 // cloudMemoryStack holds all cloud memory components for lifecycle management.
@@ -38,11 +39,43 @@ func initCloudMemory(cfg config.CloudMemoryConfig, bus *EventBus) (*cloudMemoryS
 		if tableName == "" {
 			tableName = "memories"
 		}
+
+		// Build optional embedding provider
+		var embedder embedding.Provider
+		if ecfg := cfg.Embedding; ecfg.Backend != "" && ecfg.Backend != "none" {
+			p, err := embedding.New(embedding.Config{
+				Backend:   ecfg.Backend,
+				Model:     ecfg.Model,
+				APIKey:    ecfg.APIKey,
+				BaseURL:   ecfg.BaseURL,
+				CacheSize: ecfg.CacheSize,
+			})
+			if err != nil {
+				logger.WarnCF("cloud_memory", "embedding provider init failed, falling back to text search", map[string]any{
+					"backend": ecfg.Backend,
+					"error":   err.Error(),
+				})
+			} else {
+				// Wrap with LRU cache
+				cacheSize := ecfg.CacheSize
+				if cacheSize > 0 {
+					embedder = embedding.NewCachedProvider(p, cacheSize)
+				} else {
+					embedder = p
+				}
+				logger.InfoCF("cloud_memory", "embedding provider ready", map[string]any{
+					"backend": ecfg.Backend,
+					"model":   p.Model(),
+				})
+			}
+		}
+
 		var err error
 		store, err = cloud.NewSupabaseStore(cloud.SupabaseConfig{
 			BaseURL:   cfg.BaseURL,
 			APIKey:    cfg.APIKey,
 			TableName: tableName,
+			Embedder:  embedder,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("cloud memory: create supabase store: %w", err)
