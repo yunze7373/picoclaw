@@ -241,6 +241,20 @@ func TestBuildWorkerPrompt_WithPhase(t *testing.T) {
 	}
 }
 
+func TestBuildWorkerPrompt_XMLEscape(t *testing.T) {
+	prompt := buildWorkerPrompt("task with <tag>", "label&co", "research")
+
+	if strings.Contains(prompt, "<tag>") {
+		t.Error("XML special chars in payload should be escaped")
+	}
+	if !strings.Contains(prompt, "&lt;tag&gt;") {
+		t.Error("Expected escaped XML in payload")
+	}
+	if !strings.Contains(prompt, "label&amp;co") {
+		t.Error("Expected escaped & in label")
+	}
+}
+
 func TestBuildWorkerPrompt_NoPhase(t *testing.T) {
 	prompt := buildWorkerPrompt("do something", "worker1", "")
 
@@ -249,5 +263,25 @@ func TestBuildWorkerPrompt_NoPhase(t *testing.T) {
 	}
 	if !strings.Contains(prompt, "Task: do something") {
 		t.Error("Expected task text")
+	}
+}
+
+func TestTeamTool_Execute_TooManyWorkers(t *testing.T) {
+	spawner := &teamMockSpawner{failAt: -1}
+	tool := NewTeamTool(spawner, "test-model", 4096, 0.7)
+
+	workers := make([]any, 25)
+	for i := range workers {
+		workers[i] = map[string]any{"task": "task"}
+	}
+
+	result := tool.Execute(context.Background(), map[string]any{
+		"workers": workers,
+	})
+	if !result.IsError {
+		t.Fatal("Expected error for too many workers")
+	}
+	if !strings.Contains(result.ForLLM, "too many workers") {
+		t.Errorf("Expected 'too many workers' error, got: %s", result.ForLLM)
 	}
 }

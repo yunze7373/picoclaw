@@ -24,6 +24,9 @@ type TeamTool struct {
 	temperature  float64
 }
 
+// Compile-time check: TeamTool implements Tool.
+var _ Tool = (*TeamTool)(nil)
+
 // NewTeamTool creates a TeamTool backed by the given SubTurnSpawner.
 func NewTeamTool(spawner SubTurnSpawner, defaultModel string, maxTokens int, temperature float64) *TeamTool {
 	return &TeamTool{
@@ -34,7 +37,8 @@ func NewTeamTool(spawner SubTurnSpawner, defaultModel string, maxTokens int, tem
 	}
 }
 
-// SetSpawner replaces the SubTurnSpawner (used during late initialisation).
+// SetSpawner replaces the SubTurnSpawner.
+// Must be called before any concurrent Execute calls (during setup only).
 func (t *TeamTool) SetSpawner(spawner SubTurnSpawner) {
 	t.spawner = spawner
 }
@@ -124,6 +128,12 @@ func (t *TeamTool) Execute(ctx context.Context, args map[string]any) *ToolResult
 		specs = append(specs, workerSpec{task: task, label: label, phase: phase})
 	}
 
+	// Cap the number of workers to prevent resource exhaustion
+	const maxWorkers = 20
+	if len(specs) > maxWorkers {
+		return ErrorResult(fmt.Sprintf("team_create: too many workers (%d), maximum is %d", len(specs), maxWorkers))
+	}
+
 	// Parse optional token budget
 	var sharedBudget *atomic.Int64
 	if rawBudget, ok := args["token_budget"]; ok {
@@ -164,6 +174,7 @@ func (t *TeamTool) Execute(ctx context.Context, args map[string]any) *ToolResult
 				Model:              t.defaultModel,
 				SystemPrompt:       systemPrompt,
 				MaxTokens:          t.maxTokens,
+				Temperature:        t.temperature,
 				Async:              false, // synchronous — we collect inline
 				Critical:           false,
 				Timeout:            timeout,
@@ -213,7 +224,11 @@ func (t *TeamTool) Execute(ctx context.Context, args map[string]any) *ToolResult
 	}
 
 	if sharedBudget != nil {
-		sb.WriteString(fmt.Sprintf("Token budget remaining: %d\n", sharedBudget.Load()))
+		remaining := sharedBudget.Load()
+		if remaining < 0 {
+			remaining = 0
+		}
+		sb.WriteString(fmt.Sprintf("Token budget remaining: %d\n", remaining))
 	}
 
 	sb.WriteString(fmt.Sprintf("Summary: %d/%d workers succeeded", successCount, len(results)))
@@ -228,13 +243,23 @@ func buildWorkerPrompt(task, label, phase string) string {
 	sb.WriteString("You are a worker sub-agent in a team. Complete the assigned task independently and report your findings.\n\n")
 
 	if phase != "" {
-		sb.WriteString(fmt.Sprintf("<task_notification>\n  <phase>%s</phase>\n", phase))
+		sb.WriteString(fmt.Sprintf("<task_notification>\n  <phase>%s</phase>\n", escapeXML(phase)))
 		if label != "" {
-			sb.WriteString(fmt.Sprintf("  <label>%s</label>\n", label))
+			sb.WriteString(fmt.Sprintf("  <label>%s</label>\n", escapeXML(label)))
 		}
-		sb.WriteString(fmt.Sprintf("  <payload>%s</payload>\n</task_notification>\n\n", task))
+		sb.WriteString(fmt.Sprintf("  <payload>%s</payload>\n</task_notification>\n\n", escapeXML(task)))
 	}
 
 	sb.WriteString(fmt.Sprintf("Task: %s", task))
 	return sb.String()
+}
+
+// escapeXML escapes XML special characters in a string.
+func escapeXML(s string) string {
+	s = strings.ReplaceAll(s, "&", "&amp;")
+	s = strings.ReplaceAll(s, "<", "&lt;")
+	s = strings.ReplaceAll(s, ">", "&gt;")
+	s = strings.ReplaceAll(s, "\"", "&quot;")
+	s = strings.ReplaceAll(s, "'", "&apos;")
+	return s
 }
