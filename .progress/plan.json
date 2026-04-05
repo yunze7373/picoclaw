@@ -1,0 +1,167 @@
+{
+  "plan": {
+    "id": "plan_001",
+    "name": "{阶段名称}",
+    "phase": "Phase X",
+    "sprint": 1,
+    "started_at": "{日期}",
+    "target_end": "{日期}",
+    "status": "pending",
+    "created_from_report": "report_001"
+  },
+  "objectives": [
+    "目标 1",
+    "目标 2"
+  ],
+
+  "⭐ 计划生成规则": {
+    "inbox_checkpoint": "每 3-5 个任务之间必须插入一个 📬 INBOX 检查点任务",
+    "phase_r_trigger": "计划的最后一个任务必须是 Phase R 触发器（自递归关键）",
+    "agent_assignment": "每个任务必须指定 agent 和 pipeline，引用 agents-registry.json 中的 ID",
+    "验证": "生成计划后必须检查：1. INBOX 检查点 2. phase_r_trigger 3. 每个任务有 agent"
+  },
+
+  "🤖 Agents 路由配置": {
+    "registry": "agents-registry.json",
+    "orchestrator": "agent-orchestrator",
+    "pipelines": {
+      "new_feature": ["principal-architect", "senior-ui-ux-designer", "implement", "software-test-engineer", "technical-documentation-engineer", "semantic-commit-generator"],
+      "code_quality": ["staff-code-reviewer", "principal-refactoring-engineer", "software-test-engineer", "semantic-commit-generator"],
+      "incident": ["root-cause-debugging-engineer", "fix", "software-test-engineer", "semantic-commit-generator"],
+      "phase_r_review": ["staff-code-reviewer", "principal-architect", "software-test-engineer", "technical-documentation-engineer"],
+      "ui_redesign": ["senior-ui-ux-designer", "implement", "staff-code-reviewer", "semantic-commit-generator"]
+    },
+    "task_type_mapping": {
+      "architecture": "principal-architect",
+      "ui-design": "senior-ui-ux-designer",
+      "implementation": "agent-orchestrator → auto-select",
+      "bugfix": "root-cause-debugging-engineer",
+      "refactor": "principal-refactoring-engineer",
+      "test": "software-test-engineer",
+      "review": "staff-code-reviewer",
+      "docs": "technical-documentation-engineer",
+      "performance": "principal-performance-engineer"
+    },
+    "auto_pipeline": {
+      "every_task_completion": "semantic-commit-generator",
+      "phase_r": "phase_r_review"
+    }
+  },
+
+  "tasks": [
+    {
+      "id": "task_001",
+      "name": "任务名称",
+      "description": "详细描述",
+      "type": "implementation|architecture|bugfix|refactor|test|review|docs|performance",
+      "priority": "high|medium|low",
+      "status": "pending",
+      "agent": "agent-orchestrator",
+      "pipeline": "new_feature|code_quality|incident|null",
+      "estimated_hours": 2,
+      "dependencies": [],
+      "deliverables": ["文件路径"],
+      "definition_of_done": ["完成标准 1", "完成标准 2"],
+      "references": [
+        {
+          "project": "ref-project-a",
+          "file": "path/to/similar/file.py",
+          "what_to_learn": "要借鉴的设计点"
+        }
+      ],
+      "notes": null
+    },
+    {
+      "id": "task_002",
+      "name": "任务名称 2",
+      "description": "详细描述",
+      "priority": "medium",
+      "status": "pending",
+      "deliverables": ["文件路径"],
+      "definition_of_done": ["完成标准 1"]
+    },
+    {
+      "id": "task_003",
+      "name": "任务名称 3",
+      "description": "详细描述",
+      "priority": "medium",
+      "status": "pending",
+      "deliverables": ["文件路径"],
+      "definition_of_done": ["完成标准 1"]
+    },
+
+    {
+      "id": "INBOX_CHECK_1",
+      "name": "📬 INBOX 检查点",
+      "type": "meta",
+      "priority": "critical",
+      "description": "读取 INBOX.md，处理用户新指令，调整后续任务优先级",
+      "auto_trigger": true,
+      "inbox_checkpoint": {
+        "actions": [
+          "读取 .progress/INBOX.md",
+          "处理 🔴 高优先级项（立即插入后续任务）",
+          "记录 🟡 中优先级项（Phase R 时纳入新计划）",
+          "将已处理项移到 INBOX 已完成区",
+          "立即继续执行下一个任务，不要询问"
+        ]
+      },
+      "status": "pending"
+    },
+
+    {
+      "id": "task_004",
+      "name": "任务名称 4",
+      "description": "详细描述",
+      "priority": "medium",
+      "status": "pending",
+      "deliverables": ["文件路径"],
+      "definition_of_done": ["完成标准 1"]
+    },
+    {
+      "id": "task_005",
+      "name": "任务名称 5",
+      "description": "详细描述",
+      "priority": "low",
+      "status": "pending",
+      "deliverables": ["文件路径"],
+      "definition_of_done": ["完成标准 1"]
+    },
+
+    {
+      "id": "PHASE_R",
+      "name": "🔥 Phase R 审查 + 新计划",
+      "type": "meta",
+      "priority": "critical",
+      "auto_trigger": true,
+      "phase_r_trigger": {
+        "auto_execute": true,
+        "tasks": [
+          "⚠️ 重新读取 .progress/AI_INSTRUCTIONS.md（确保模型切换后规则不丢失）",
+          "📬 读取 INBOX.md 获取用户新指令",
+          "🤖 启动 Agents 审查流水线（phase_r_review pipeline）：",
+          "  → staff-code-reviewer: 全面代码审查",
+          "  → principal-architect: 架构一致性检查",
+          "  → software-test-engineer: 测试覆盖验证",
+          "  → technical-documentation-engineer: 文档完整性检查",
+          "合并审查结果 → 生成审核报告 AUDIT_REPORT_XXX.md",
+          "生成下阶段计划 plan_XXX.json（⭐ 必须包含 INBOX 检查点 + phase_r_trigger + agent 分配！）",
+          "更新 PROGRESS_STATUS.json",
+          "更新 TODOS.md（⭐ 保留文件头部的模型切换生存规则！）",
+          "立即执行新计划的第一个任务，不要询问"
+        ]
+      },
+      "files": [".progress/reports/AUDIT_REPORT_XXX.md", ".progress/plans/plan_XXX.json"],
+      "description": "本阶段所有任务完成后自动执行 Phase R → 重读指令文件 → 生成新计划 → 继续执行。⚠️ 模型切换后也必须执行此流程。",
+      "status": "pending"
+    }
+  ],
+
+  "milestones": [
+    {
+      "name": "里程碑名称",
+      "target_date": "{日期}",
+      "status": "pending"
+    }
+  ]
+}

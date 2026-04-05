@@ -1,0 +1,335 @@
+{
+  "plan": {
+    "id": "plan_001",
+    "name": "MVP 接管阶段 - SubAgent 编排增强 + Android 适配",
+    "phase": "Phase 1",
+    "sprint": 1,
+    "started_at": "2026-04-05",
+    "target_end": "2026-04-19",
+    "status": "in_progress",
+    "created_from_report": "INITIAL_AUDIT_REPORT"
+  },
+  "objectives": [
+    "深度理解现有 SubTurn 架构（subturn.go, spawn.go, subagent.go）",
+    "设计并实现 Coordinator-Worker TeamTool（pkg/tools/team.go）",
+    "补充 SubAgent 编排文档（docs/agent-orchestration.md）",
+    "编写完整 Android/Termux 部署指南（docs/android-termux.md）",
+    "可选：添加 Termux 环境检测工具函数（pkg/env/termux.go）",
+    "所有新代码通过现有测试，不破坏现有功能"
+  ],
+
+  "⭐ 计划生成规则": {
+    "inbox_checkpoint": "每 3-5 个任务之间插入一个 📬 INBOX 检查点任务",
+    "phase_r_trigger": "计划的最后一个任务是 Phase R 触发器（自递归关键）",
+    "agent_assignment": "每个任务指定 agent",
+    "验证": "本计划已包含 INBOX 检查点和 phase_r_trigger"
+  },
+
+  "🤖 Agents 路由配置": {
+    "orchestrator": "agent-orchestrator",
+    "task_type_mapping": {
+      "architecture": "principal-architect",
+      "implementation": "agent-orchestrator",
+      "bugfix": "root-cause-debugging-engineer",
+      "refactor": "principal-refactoring-engineer",
+      "test": "software-test-engineer",
+      "review": "staff-code-reviewer",
+      "docs": "technical-documentation-engineer"
+    }
+  },
+
+  "tasks": [
+    {
+      "id": "task_001",
+      "name": "深读 SubTurn/Spawn 现有架构",
+      "description": "精读 pkg/agent/subturn.go, pkg/tools/spawn.go, pkg/tools/subagent.go, pkg/tools/spawn_status.go。理解 SubTurnConfig, SpawnTool, SubagentManager, pendingResults 等核心类型和并发模型。记录关键设计决策。",
+      "type": "architecture",
+      "priority": "high",
+      "status": "pending",
+      "agent": "principal-architect",
+      "estimated_hours": 2,
+      "dependencies": [],
+      "deliverables": [
+        "内部笔记：现有 SubAgent 系统的关键接口和扩展点"
+      ],
+      "definition_of_done": [
+        "能准确描述 Async=true vs Async=false 的区别",
+        "能描述 pendingResults channel 的工作方式",
+        "识别 TeamTool 最佳插入点"
+      ]
+    },
+    {
+      "id": "task_002",
+      "name": "设计 TeamTool 接口（架构设计）",
+      "description": "基于 task_001 的理解，设计 pkg/tools/team.go 的接口。TeamTool 支持：1) coordinator 创建 worker 团队；2) 并行分发任务给多个 worker SubAgent；3) 收集所有 worker 结果；4) 支持 XML 任务通知格式（参考 claude-code）。确保向后兼容，不影响现有 spawn 工具。",
+      "type": "architecture",
+      "priority": "high",
+      "status": "pending",
+      "agent": "principal-architect",
+      "estimated_hours": 3,
+      "dependencies": ["task_001"],
+      "deliverables": [
+        "pkg/tools/team.go（接口定义，无实现）",
+        "设计文档注释"
+      ],
+      "definition_of_done": [
+        "TeamTool 实现 tools.Tool 接口",
+        "接口支持并行 worker 启动",
+        "接口支持 token budget 共享（复用现有 InitialTokenBudget 机制）",
+        "Go 代码可编译（仅接口，无实现体）"
+      ],
+      "references": [
+        {
+          "file": "pkg/tools/spawn.go",
+          "what_to_learn": "SpawnTool 的接口设计模式"
+        },
+        {
+          "file": "pkg/tools/subagent.go",
+          "what_to_learn": "SubTurnConfig 和 SubagentManager 的复用"
+        }
+      ]
+    },
+    {
+      "id": "task_003",
+      "name": "实现 TeamTool（Coordinator-Worker 核心）",
+      "description": "实现 task_002 设计的 TeamTool。核心功能：1) NewTeamTool(spawner) 构造函数；2) Execute 方法：解析 workers 参数，并行启动多个 SubTurn（Async=true）；3) 收集所有 worker 结果，合并为统一输出；4) 超时控制（继承 SubTurnConfig.Timeout）；5) token budget 共享（使用 InitialTokenBudget）。",
+      "type": "implementation",
+      "priority": "high",
+      "status": "pending",
+      "agent": "agent-orchestrator",
+      "estimated_hours": 6,
+      "dependencies": ["task_002"],
+      "deliverables": [
+        "pkg/tools/team.go（完整实现）",
+        "pkg/tools/team_test.go（单元测试）"
+      ],
+      "definition_of_done": [
+        "TeamTool 可以并行启动 2+ worker SubAgent",
+        "worker 结果正确合并",
+        "token budget 共享工作正常",
+        "测试覆盖率 >80%",
+        "go test ./pkg/tools/... 通过"
+      ]
+    },
+
+    {
+      "id": "INBOX_CHECK_1",
+      "name": "📬 INBOX 检查点 #1",
+      "type": "meta",
+      "priority": "critical",
+      "description": "读取 .progress/INBOX.md，处理用户新指令，调整后续任务优先级",
+      "auto_trigger": true,
+      "inbox_checkpoint": {
+        "actions": [
+          "读取 .progress/INBOX.md",
+          "处理 🔴 高优先级项（立即插入后续任务）",
+          "记录 🟡 中优先级项（Phase R 时纳入新计划）",
+          "将已处理项移到 INBOX 已完成区",
+          "立即继续执行下一个任务，不要询问"
+        ]
+      },
+      "status": "pending"
+    },
+
+    {
+      "id": "task_004",
+      "name": "注册 TeamTool 到 AgentLoop",
+      "description": "在合适的位置注册 TeamTool。查找现有 SpawnTool 注册位置（pkg/agent/instance.go 或 registry.go），在同一位置注册 TeamTool。确保 TeamTool 只在正确的 agent 类型（coordinator 角色）中可用，或作为可选工具通过配置启用。",
+      "type": "implementation",
+      "priority": "high",
+      "status": "pending",
+      "agent": "agent-orchestrator",
+      "estimated_hours": 2,
+      "dependencies": ["task_003"],
+      "deliverables": [
+        "pkg/agent/instance.go 或相关注册文件（修改）"
+      ],
+      "definition_of_done": [
+        "TeamTool 在 agent 中可用",
+        "go build ./... 通过",
+        "go test ./pkg/agent/... 通过"
+      ]
+    },
+    {
+      "id": "task_005",
+      "name": "编写 SubAgent 编排文档",
+      "description": "基于实现，编写 docs/agent-orchestration.md。内容包括：1) Coordinator-Worker 模式介绍；2) team_create 工具使用示例；3) Research/Synthesis/Implementation/Verification 四阶段工作流示例；4) XML 任务通知格式说明；5) token budget 管理；6) 与 spawn 工具的区别；7) 资源约束建议。中英文双语（中文优先，英文简介）。",
+      "type": "docs",
+      "priority": "medium",
+      "status": "pending",
+      "agent": "technical-documentation-engineer",
+      "estimated_hours": 2,
+      "dependencies": ["task_004"],
+      "deliverables": [
+        "docs/agent-orchestration.md"
+      ],
+      "definition_of_done": [
+        "文档包含可运行的配置示例",
+        "四阶段工作流有完整示例",
+        "文档通过 markdown lint"
+      ]
+    },
+
+    {
+      "id": "INBOX_CHECK_2",
+      "name": "📬 INBOX 检查点 #2",
+      "type": "meta",
+      "priority": "critical",
+      "description": "读取 .progress/INBOX.md，处理用户新指令，调整后续任务优先级",
+      "auto_trigger": true,
+      "inbox_checkpoint": {
+        "actions": [
+          "读取 .progress/INBOX.md",
+          "处理所有新指令",
+          "调整 task_006+ 的优先级",
+          "继续执行"
+        ]
+      },
+      "status": "pending"
+    },
+
+    {
+      "id": "task_006",
+      "name": "Android/Termux 环境调研",
+      "description": "研究 yunze7373/openclaw-termux 的 Termux 适配方案。重点关注：1) $PREFIX 路径处理方式；2) ARM64 sqlite 编译方案；3) 进程管理（PM2/shell 替代 systemd）；4) 现有 PicoClaw Android APK 的配置路径。同时检查 pkg/env/ 目录和现有 config 加载逻辑，找到最佳 Termux 检测插入点。",
+      "type": "architecture",
+      "priority": "high",
+      "status": "pending",
+      "agent": "principal-architect",
+      "estimated_hours": 2,
+      "dependencies": [],
+      "deliverables": [
+        "调研笔记（内部）"
+      ],
+      "definition_of_done": [
+        "明确 Termux 环境检测方法（$PREFIX 或 getprop）",
+        "明确 ARM64 编译流程",
+        "确定文档结构"
+      ]
+    },
+    {
+      "id": "task_007",
+      "name": "实现 Termux 环境检测工具函数",
+      "description": "在 pkg/env/ 目录（如不存在则创建）添加 termux.go。提供：IsTermux() bool（检测是否在 Termux 中运行，通过 $PREFIX 或 $TERMUX_VERSION 环境变量）；TermuxHome() string（返回 Termux home 路径）；TermuxPrefix() string（返回 $PREFIX 路径）。这些函数将在配置加载时使用，确保默认路径正确。",
+      "type": "implementation",
+      "priority": "medium",
+      "status": "pending",
+      "agent": "agent-orchestrator",
+      "estimated_hours": 1,
+      "dependencies": ["task_006"],
+      "deliverables": [
+        "pkg/env/termux.go",
+        "pkg/env/termux_test.go"
+      ],
+      "definition_of_done": [
+        "IsTermux() 在 Termux 中返回 true，其他环境返回 false",
+        "路径函数返回正确的 Termux 路径",
+        "测试覆盖率 >80%",
+        "go test ./pkg/env/... 通过"
+      ]
+    },
+    {
+      "id": "task_008",
+      "name": "编写 Android/Termux 部署指南",
+      "description": "编写 docs/android-termux.md。内容必须包含：1) 前置要求（Termux 版本、存储权限）；2) 安装 PicoClaw（下载 ARM64 二进制 vs 从源码编译）；3) 配置文件路径（Termux 下的 ~/.config/picoclaw/）；4) 资源约束配置（<50MB RAM 的推荐配置）；5) 进程守护（Termux:Boot 自启动）；6) 常见问题排查；7) ARM64 从源码编译指南（包含 CGO 构建 tag）。提供完整可运行的命令示例。",
+      "type": "docs",
+      "priority": "high",
+      "status": "pending",
+      "agent": "technical-documentation-engineer",
+      "estimated_hours": 3,
+      "dependencies": ["task_007"],
+      "deliverables": [
+        "docs/android-termux.md"
+      ],
+      "definition_of_done": [
+        "所有命令示例在 Termux 环境中可执行",
+        "包含完整配置文件示例",
+        "包含自启动配置",
+        "文档结构清晰，中英文双语"
+      ]
+    },
+
+    {
+      "id": "INBOX_CHECK_3",
+      "name": "📬 INBOX 检查点 #3",
+      "type": "meta",
+      "priority": "critical",
+      "description": "最终 INBOX 检查，处理本阶段遗留的用户指令",
+      "auto_trigger": true,
+      "inbox_checkpoint": {
+        "actions": [
+          "读取 .progress/INBOX.md",
+          "处理所有新指令",
+          "记录未处理项供 Phase R 处理",
+          "继续执行"
+        ]
+      },
+      "status": "pending"
+    },
+
+    {
+      "id": "task_009",
+      "name": "运行全量测试 + 代码审查",
+      "description": "运行 go test ./... 确保所有现有测试通过。运行 go vet ./... 和 go build ./... 检查编译。重点验证：1) team.go 新代码的测试覆盖率；2) termux.go 新代码的测试覆盖率；3) 现有 subturn_test.go, spawn_test.go 未被破坏。使用 staff-code-reviewer 审查 team.go 的并发安全性。",
+      "type": "review",
+      "priority": "high",
+      "status": "pending",
+      "agent": "staff-code-reviewer",
+      "estimated_hours": 2,
+      "dependencies": ["task_008"],
+      "deliverables": [
+        "测试报告（内部）",
+        "代码审查结果"
+      ],
+      "definition_of_done": [
+        "go test ./... 全部通过",
+        "go vet ./... 无错误",
+        "go build ./... 编译成功",
+        "team.go 并发安全性通过审查"
+      ]
+    },
+
+    {
+      "id": "PHASE_R",
+      "name": "🔥 Phase R 审查 + 生成 plan_002",
+      "type": "meta",
+      "priority": "critical",
+      "auto_trigger": true,
+      "phase_r_trigger": {
+        "auto_execute": true,
+        "tasks": [
+          "⚠️ 重新读取 .progress/AI_INSTRUCTIONS.md（确保模型切换后规则不丢失）",
+          "📬 读取 INBOX.md 获取用户新指令",
+          "全面审查已完成任务：team.go, termux.go, docs/",
+          "生成审核报告 .progress/reports/AUDIT_REPORT_002.md",
+          "生成下阶段计划 .progress/plans/plan_002.json（Phase 2：云记忆体设计）",
+          "⭐ plan_002 必须包含 INBOX 检查点 + phase_r_trigger + agent 分配",
+          "更新 .progress/PROGRESS_STATUS.json（状态：phase002_cloud_memory_design）",
+          "更新 .progress/TODOS.md",
+          "立即执行 plan_002 第一个任务，不要询问"
+        ]
+      },
+      "files": [
+        ".progress/reports/AUDIT_REPORT_002.md",
+        ".progress/plans/plan_002.json"
+      ],
+      "description": "plan_001 所有任务完成后自动触发。审查 MVP 阶段成果，生成 Phase 2（云记忆体）计划，继续自主推进。",
+      "status": "pending"
+    }
+  ],
+
+  "milestones": [
+    {
+      "name": "M1 - SubAgent 编排 MVP",
+      "target": "Phase 1 结束",
+      "deliverables": ["pkg/tools/team.go", "docs/agent-orchestration.md"],
+      "status": "pending"
+    },
+    {
+      "name": "M1 - Android/Termux 文档",
+      "target": "Phase 1 结束",
+      "deliverables": ["docs/android-termux.md", "pkg/env/termux.go"],
+      "status": "pending"
+    }
+  ]
+}

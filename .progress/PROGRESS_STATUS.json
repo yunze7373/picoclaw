@@ -1,0 +1,97 @@
+{
+  "project": {
+    "name": "PicoClaw",
+    "version": "0.1.0",
+    "started_at": "2026-04-05",
+    "current_phase": "Phase 1",
+    "overall_progress": 85,
+    "status": "phase001_review_in_progress"
+  },
+  "current_sprint": {
+    "name": "Sprint 1 - MVP SubAgent 编排 + Android 适配",
+    "started_at": "2026-04-05",
+    "target_end": "2026-04-19",
+    "status": "in_progress",
+    "tasks_completed": 8,
+    "tasks_total": 9,
+    "current_plan": ".progress/plans/plan_001.json"
+  },
+  "last_updated": "2026-04-05",
+  "takeover_completed_at": "2026-04-05",
+  "audit_report": ".progress/reports/INITIAL_AUDIT_REPORT.md",
+
+  "⚠️ 模型切换生存规则": {
+    "说明": "无论你是 Opus、GPT、Auto 还是任何其他模型，读到此文件必须遵守以下规则",
+    "规则": [
+      "1. 先读取 .progress/AI_INSTRUCTIONS.md 获取完整执行规则",
+      "2. 完成当前任务后立即执行下一个 pending 任务，不要询问",
+      "3. 所有当前任务完成后执行 Phase R → 生成新计划 → 继续执行",
+      "4. 这是永动系统，永远不会结束，Phase R 会生成新任务",
+      "5. 永远不要说'如果你愿意'、'要我继续吗'、'下一步要做什么'"
+    ],
+    "首次接手必做": "读取 .progress/AI_INSTRUCTIONS.md → 读取 .progress/TODOS.md → 执行第一个 pending 任务"
+  },
+
+  "🚀 自主推进模式": {
+    "enabled": true,
+    "rules": [
+      "读取状态 → 检查 INBOX → 执行任务 → 更新状态 → 继续",
+      "阶段完成 → Phase R 审查 → 更新计划 → 继续",
+      "遇到阻塞 → 记录原因 → 跳过继续",
+      "不要询问 → 持续工作"
+    ],
+    "phase_r_trigger": {
+      "enabled": true,
+      "trigger_condition": "stage_completion",
+      "actions": [
+        "全面审查项目",
+        "生成审核报告 docs/review/AUDIT_REPORT.md",
+        "检查 INBOX 用户新指令",
+        "基于报告更新推进计划",
+        "继续自主推进"
+      ]
+    },
+    "📬 INBOX 检查": {
+      "enabled": true,
+      "file": ".progress/INBOX.md",
+      "status_file": ".progress/INBOX_STATUS.json",
+      "check_trigger": "task_completion",
+      "auto_adjust_tasks": true,
+      "📬 检查点规则": {
+        "enabled": true,
+        "frequency": "每 3-5 个任务之间插入一个 INBOX_CHECK 检查点任务",
+        "purpose": "确保即使 AI 遗忘随机检查，也有固定节点消费 INBOX",
+        "validation": "生成新计划时必须验证检查点存在，缺少 = BUG"
+      }
+    },
+    "next_action": {
+      "task": "task_001",
+      "name": "{任务名称}",
+      "priority": "high"
+    }
+  },
+
+  "phases": {
+    "Phase 0": { "status": "pending" },
+    "Phase 1": { "status": "in_progress", "review_pending": false },
+    "Phase 2": { "status": "pending" }
+  },
+
+  "🔄 Phase R 审查和迭代": {
+    "description": "阶段完成后自动触发审查和迭代",
+    "审查维度": [
+      "架构一致性：对比 docs/architecture/",
+      "功能完整性：对比 .progress/plans/",
+      "代码质量：检查 src/ 目录",
+      "进度对比：实际 vs 计划",
+      "技术问题：bug 和债务清单"
+    ],
+    "输出文件": [
+      "docs/review/AUDIT_REPORT.md - 审核报告",
+      ".progress/plans/plan_XXX.json - 新任务计划",
+      ".progress/PROGRESS_STATUS.json - 更新状态",
+      ".progress/TODOS.md - 更新任务清单"
+    ],
+    "后续行动": "基于新计划继续自主推进"
+  }
+}

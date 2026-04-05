@@ -1,0 +1,10 @@
+{
+  "last_check": null,
+  "last_process": null,
+  "pending_items": 0,
+  "processed_items": 0,
+  "status": "idle",
+  "check_interval_minutes": 10,
+  "auto_adjust_tasks": true,
+  "history": []
+}
