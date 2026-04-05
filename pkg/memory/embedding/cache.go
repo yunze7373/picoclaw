@@ -82,7 +82,10 @@ missTexts := make([]string, 0)
 
 for i, k := range keys {
 if el, ok := c.cache[k]; ok {
-result[i] = el.Value.(*cacheEntry).vec
+src := el.Value.(*cacheEntry).vec
+cp := make([]float32, len(src))
+copy(cp, src)
+result[i] = cp
 c.order.MoveToBack(el) // O(1) touch
 c.hits.Add(1)
 } else {
@@ -139,15 +142,20 @@ h := sha256.Sum256([]byte(s))
 return hex.EncodeToString(h[:16]) // intentional 128-bit truncation
 }
 
-// Stats returns a snapshot of the cache counters. Thread-safe.
+// Stats returns a consistent snapshot of the cache counters. Thread-safe.
+// All fields are read while the mutex is held so that Size and the hit/miss
+// counters reflect the same point in time.
 func (c *CachedProvider) Stats() CacheStats {
 c.mu.Lock()
 size := c.order.Len()
+hits := c.hits.Load()
+misses := c.misses.Load()
+evictions := c.evictions.Load()
 c.mu.Unlock()
 return CacheStats{
-Hits:      c.hits.Load(),
-Misses:    c.misses.Load(),
-Evictions: c.evictions.Load(),
+Hits:      hits,
+Misses:    misses,
+Evictions: evictions,
 Size:      size,
 MaxSize:   c.maxSize,
 }

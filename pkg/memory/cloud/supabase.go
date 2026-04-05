@@ -305,11 +305,15 @@ func (s *SupabaseStore) SimilaritySearch(ctx context.Context, query string, topK
 
 	// Use vector search if embedder is configured.
 	if s.hasEmbedder() {
-		vectors, err := s.embedder.Embed(ctx, []string{query})
-		if err == nil && len(vectors) > 0 && len(vectors[0]) > 0 {
+		vectors, embedErr := s.embedder.Embed(ctx, []string{query})
+		if embedErr != nil {
+			if s.onEmbedError != nil {
+				s.onEmbedError(embedErr)
+			}
+			// Fall through to text search
+		} else if len(vectors) > 0 && len(vectors[0]) > 0 {
 			return s.vectorSearch(ctx, vectors[0], topK, minScore)
 		}
-		// Fall through to text search on embedding failure
 	}
 
 	return s.textSearch(ctx, query, topK, minScore)
@@ -408,7 +412,11 @@ func (s *SupabaseStore) decodeSearchResults(resp *http.Response) ([]SearchResult
 
 // hasEmbedder returns true if a real (non-noop) embedding provider is set.
 func (s *SupabaseStore) hasEmbedder() bool {
-	return s.embedder != nil && s.embedder.Model() != "none"
+	if s.embedder == nil {
+		return false
+	}
+	_, isNoop := s.embedder.(*embedding.NoopProvider)
+	return !isNoop
 }
 
 func (s *SupabaseStore) SyncFromLocal(ctx context.Context, memories []Memory) (*SyncStats, error) {

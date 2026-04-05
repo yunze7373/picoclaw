@@ -14,6 +14,9 @@ type NoopProvider struct{}
 
 // Embed returns a nil vector for each input text (no network call, no allocation).
 func (p *NoopProvider) Embed(_ context.Context, texts []string) ([][]float32, error) {
+	if len(texts) == 0 {
+		return nil, nil
+	}
 	// make([][]float32, n) already initialises each element to nil.
 	return make([][]float32, len(texts)), nil
 }
