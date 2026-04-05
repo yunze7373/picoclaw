@@ -27,6 +27,11 @@ func TestNewSupabaseStore_Validation(t *testing.T) {
 			wantErr: "api_key is required",
 		},
 		{
+			name:    "invalid table name",
+			cfg:     SupabaseConfig{BaseURL: "https://example.supabase.co", APIKey: "key", TableName: "../admin/users"},
+			wantErr: "invalid table name",
+		},
+		{
 			name: "valid config",
 			cfg:  SupabaseConfig{BaseURL: "https://example.supabase.co", APIKey: "key"},
 		},
@@ -308,5 +313,45 @@ func TestSupabaseStore_SyncFromLocal(t *testing.T) {
 	}
 	if stats.Duration <= 0 {
 		t.Error("duration should be positive")
+	}
+}
+
+func TestSupabaseStore_SimilaritySearch_Validation(t *testing.T) {
+	store, _ := NewSupabaseStore(SupabaseConfig{
+		BaseURL: "https://example.supabase.co",
+		APIKey:  "key",
+	})
+
+	// Negative topK
+	_, err := store.SimilaritySearch(context.Background(), "test", -1, 0.5)
+	if err == nil || !strings.Contains(err.Error(), "topK must be positive") {
+		t.Errorf("expected topK validation error, got: %v", err)
+	}
+
+	// Invalid minScore
+	_, err = store.SimilaritySearch(context.Background(), "test", 5, 1.5)
+	if err == nil || !strings.Contains(err.Error(), "minScore must be in") {
+		t.Errorf("expected minScore validation error, got: %v", err)
+	}
+
+	// Empty query returns nil
+	results, err := store.SimilaritySearch(context.Background(), "", 5, 0.5)
+	if err != nil {
+		t.Errorf("empty query should not error: %v", err)
+	}
+	if results != nil {
+		t.Errorf("empty query should return nil results")
+	}
+}
+
+func TestSupabaseStore_DeleteMemory_EmptyID(t *testing.T) {
+	store, _ := NewSupabaseStore(SupabaseConfig{
+		BaseURL: "https://example.supabase.co",
+		APIKey:  "key",
+	})
+
+	err := store.DeleteMemory(context.Background(), "")
+	if err == nil || !strings.Contains(err.Error(), "id is required") {
+		t.Errorf("expected id required error, got: %v", err)
 	}
 }

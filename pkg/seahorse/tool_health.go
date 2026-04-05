@@ -96,14 +96,9 @@ func (t *HealthTool) Execute(ctx context.Context, _ map[string]any) tools.ToolRe
 		}
 	}
 
-	// 3. WAL checkpoint status
-	var walPages int
-	row := store.db.QueryRowContext(ctx, "PRAGMA wal_checkpoint(PASSIVE)")
-	var busy, log, checkpointed int
-	if err := row.Scan(&busy, &log, &checkpointed); err == nil {
-		walPages = log
-	}
-	result.WALPages = walPages
+	// 3. WAL file size (read-only, no checkpoint side effects)
+	walSize := getWALFileSize(store)
+	result.WALPages = int(walSize / 4096) // approximate page count
 
 	// 4. Database file size
 	result.DBSizeBytes = getDBFileSize(store)

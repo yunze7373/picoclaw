@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -54,6 +56,9 @@ type SupabaseConfig struct {
 
 var _ CloudMemoryStore = (*SupabaseStore)(nil)
 
+// validTableName restricts table names to safe SQL identifiers.
+var validTableName = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]{0,62}$`)
+
 // NewSupabaseStore creates a new Supabase-backed cloud memory store.
 func NewSupabaseStore(cfg SupabaseConfig) (*SupabaseStore, error) {
 	if cfg.BaseURL == "" {
@@ -66,6 +71,9 @@ func NewSupabaseStore(cfg SupabaseConfig) (*SupabaseStore, error) {
 	tableName := cfg.TableName
 	if tableName == "" {
 		tableName = "memories"
+	}
+	if !validTableName.MatchString(tableName) {
+		return nil, fmt.Errorf("supabase: invalid table name %q", tableName)
 	}
 
 	timeout := cfg.Timeout
@@ -109,7 +117,7 @@ func (s *SupabaseStore) UpsertMemory(ctx context.Context, m Memory) error {
 	if err != nil {
 		return fmt.Errorf("supabase: upsert: %w", err)
 	}
-	defer resp.Body.Close()
+	defer drainAndClose(resp.Body)
 
 	if resp.StatusCode >= 300 {
 		return s.readError(resp)
@@ -153,7 +161,7 @@ func (s *SupabaseStore) UpsertBatch(ctx context.Context, memories []Memory) (int
 	if err != nil {
 		return 0, fmt.Errorf("supabase: upsert batch: %w", err)
 	}
-	defer resp.Body.Close()
+	defer drainAndClose(resp.Body)
 
 	if resp.StatusCode >= 300 {
 		return 0, s.readError(resp)
@@ -169,8 +177,19 @@ func (s *SupabaseStore) DeleteMemory(ctx context.Context, id string) error {
 	}
 	s.mu.RUnlock()
 
-	url := fmt.Sprintf("%s/rest/v1/%s?id=eq.%s", s.baseURL, s.tableName, id)
-	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, url, nil)
+	if id == "" {
+		return fmt.Errorf("supabase: id is required for delete")
+	}
+
+	u, err := url.Parse(fmt.Sprintf("%s/rest/v1/%s", s.baseURL, s.tableName))
+	if err != nil {
+		return fmt.Errorf("supabase: build URL: %w", err)
+	}
+	q := u.Query()
+	q.Set("id", "eq."+id)
+	u.RawQuery = q.Encode()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, u.String(), nil)
 	if err != nil {
 		return fmt.Errorf("supabase: create request: %w", err)
 	}
@@ -181,7 +200,7 @@ func (s *SupabaseStore) DeleteMemory(ctx context.Context, id string) error {
 	if err != nil {
 		return fmt.Errorf("supabase: delete: %w", err)
 	}
-	defer resp.Body.Close()
+	defer drainAndClose(resp.Body)
 
 	if resp.StatusCode >= 300 {
 		return s.readError(resp)
@@ -197,6 +216,16 @@ func (s *SupabaseStore) DeleteMemory(ctx context.Context, id string) error {
 //	RETURNS TABLE (id TEXT, content TEXT, session_key TEXT, kind TEXT, similarity FLOAT)
 //	AS $$ ... $$ LANGUAGE plpgsql;
 func (s *SupabaseStore) SimilaritySearch(ctx context.Context, query string, topK int, minScore float64) ([]SearchResult, error) {
+	if topK <= 0 {
+		return nil, fmt.Errorf("supabase: topK must be positive, got %d", topK)
+	}
+	if minScore < 0 || minScore > 1 {
+		return nil, fmt.Errorf("supabase: minScore must be in [0,1], got %f", minScore)
+	}
+	if query == "" {
+		return nil, nil
+	}
+
 	s.mu.RLock()
 	if s.closed {
 		s.mu.RUnlock()
@@ -339,6 +368,8 @@ func (s *SupabaseStore) Close() error {
 }
 
 // setAuthHeaders adds Supabase authorization headers.
+// Supabase PostgREST requires both: "apikey" for rate limiting/routing,
+// "Authorization: Bearer" for actual authentication.
 func (s *SupabaseStore) setAuthHeaders(req *http.Request) {
 	req.Header.Set("apikey", s.apiKey)
 	req.Header.Set("Authorization", "Bearer "+s.apiKey)
@@ -346,8 +377,18 @@ func (s *SupabaseStore) setAuthHeaders(req *http.Request) {
 
 // readError reads an error response body and returns a formatted error.
 func (s *SupabaseStore) readError(resp *http.Response) error {
-	body, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 1024))
+	if err != nil || len(body) == 0 {
+		return fmt.Errorf("supabase: HTTP %d: <body unreadable>", resp.StatusCode)
+	}
 	return fmt.Errorf("supabase: HTTP %d: %s", resp.StatusCode, string(body))
+}
+
+// drainAndClose fully reads and closes an HTTP response body to allow
+// connection reuse by the HTTP client pool.
+func drainAndClose(body io.ReadCloser) {
+	io.Copy(io.Discard, body)
+	body.Close()
 }
 
 // memoryToRow converts a Memory to a Supabase-compatible row map.

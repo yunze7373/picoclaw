@@ -17,11 +17,12 @@ import (
 //	mgr.Stop()                     // flushes pending and stops
 type SyncManager struct {
 	store    CloudMemoryStore
-	config   SyncManagerConfig
-	queue    chan Memory
-	done     chan struct{}
-	stopOnce sync.Once
-	cancel   context.CancelFunc
+	config    SyncManagerConfig
+	queue     chan Memory
+	done      chan struct{}
+	startOnce sync.Once
+	stopOnce  sync.Once
+	cancel    context.CancelFunc
 }
 
 // SyncManagerConfig configures the SyncManager behavior.
@@ -34,6 +35,9 @@ type SyncManagerConfig struct {
 
 	// QueueSize is the buffer size for the enqueue channel. Default: 1000.
 	QueueSize int
+
+	// OnError is called when a sync flush fails. Optional.
+	OnError func(err error, batchSize int)
 }
 
 func (c *SyncManagerConfig) withDefaults() SyncManagerConfig {
@@ -62,14 +66,22 @@ func NewSyncManager(store CloudMemoryStore, cfg SyncManagerConfig) *SyncManager 
 }
 
 // Start begins the background sync loop. Call Stop to shut down gracefully.
+// Safe to call multiple times; only the first call starts the loop.
 func (m *SyncManager) Start(ctx context.Context) {
-	ctx, m.cancel = context.WithCancel(ctx)
-	go m.loop(ctx)
+	m.startOnce.Do(func() {
+		ctx, m.cancel = context.WithCancel(ctx)
+		go m.loop(ctx)
+	})
 }
 
 // Enqueue adds memories to the sync queue without blocking.
-// If the queue is full, memories are silently dropped.
+// If the queue is full or the manager is stopped, memories are silently dropped.
 func (m *SyncManager) Enqueue(memories ...Memory) {
+	select {
+	case <-m.done:
+		return // manager stopped
+	default:
+	}
 	for _, mem := range memories {
 		select {
 		case m.queue <- mem:
@@ -143,6 +155,8 @@ func (m *SyncManager) flush(ctx context.Context, batch []Memory) {
 	toSync := make([]Memory, len(batch))
 	copy(toSync, batch)
 
-	// Best-effort sync — errors are logged but don't stop the manager
-	_, _ = m.store.SyncFromLocal(ctx, toSync)
+	_, err := m.store.SyncFromLocal(ctx, toSync)
+	if err != nil && m.config.OnError != nil {
+		m.config.OnError(err, len(toSync))
+	}
 }
